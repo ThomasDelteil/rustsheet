@@ -1,18 +1,30 @@
 # T-4810: SPEC-0046, workbook-locale semantics — draft for a design read
 
-*poc-design-cc, 2026-11-11. The spec is `SPEC-0046-workbook-locale-semantics.md` beside this file (451 lines; branch
-`agent/design/T-4810-workbook-locale-semantics`, 52a1f2248). It is cut as a CR after T-4808's ruling (decision 0443),
+*poc-design-cc, 2026-11-11. The spec is `SPEC-0046-workbook-locale-semantics.md` beside this file (548 lines; branch
+`agent/design/T-4810-workbook-locale-semantics`, 5f55b05a7). It is cut as a CR after T-4808's ruling (decision 0443),
 because the locales in scope are that decision's. Nothing in it claims to be evidence of Excel: every rule names
 the probe that will evidence it.*
 
 ## In one page
 
+- **Changed at 19:00Z on 2026-11-11, after an independent read of the draft against the code** (seven blocking
+  findings, all folded in). The two that matter most:
+  - The rule "a document stores its formulas and values in en-US form, whatever its locale" needs an engine
+    change first. Today the engine reads stored text under the workbook's own locale, so a German document's
+    stored `1.5` would be read as German text by every replica. That change is now the first engine step.
+  - Nothing today stops an older client from opening a document that carries another locale and computing it as
+    en-US. The spec now says what must exist before any client may write another locale: a required capability
+    on the document, a check at open, and the locale and language in the engine's contract.
+  Also: whether a locale is "verified" is now recorded per pair of regional format and language, because that
+  is what an Excel target computes; text inside a formula's quotes (`TEXT(A1,"TT.MM.JJJJ")`) is not rewritten
+  and follows the locale; five items joined the inventory; three statements about Excel that had no quote are
+  now marked as our belief or as probes. No question for the lead changed.
 - **Why.** The engine ships six locales and five formula languages, and only en-US has Excel evidence. Nothing says
   what a locale should change, so each function decided for itself. Reading the code against the inventory found
-  twelve places that disagree with each other or with what Microsoft documents (the spec's "Problem" table). One is
+  fourteen places that disagree with each other or with what Microsoft documents (the spec's "Problem" table). One is
   a defect whatever Excel does: a formula with an array constant, printed under a comma-decimal locale, does not
   parse back.
-- **The inventory.** 52 items in seven groups: typed input, text coercion, displayed text, formula language and
+- **The inventory.** 57 items in seven groups: typed input, text coercion, displayed text, formula language and
   syntax, format codes written in the locale, locale-aware functions, and what must not change. Each has a probe
   shape (five shapes; three exist in the harness today), what the engine does today, and its owner task.
 - **The model.** Excel has two settings, the regional format and the display language, and neither is in the file.

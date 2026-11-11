@@ -28,15 +28,17 @@
   | Format codes | the format lexer takes no locale: `,` and `.` are fixed, and the letters are en-US's | `formatter/lexer.rs` |
   | Built-in date format 14, `[$-F800]`, `[$-F400]` | fixed en-US patterns | `number_format.rs`; `formatter/locale_tag.rs` |
   | Month and day names | CLDR's, which differ from Excel's own (de `Mär` against Excel's `Mrz`) | `locale/mod.rs`; `formatter/date_names.rs` |
-  | Collation and case mapping | no locale | `functions/util/collation.rs`; `string_format.rs` |
+  | Collation and case mapping | no locale | `functions/util/collation.rs`; UPPER and LOWER in `functions/text/common.rs`, PROPER in `string_format.rs` |
   | An English function name in another language | `#NAME?` | `test/test_language.rs` |
   | Locale ids | exact match on the engine's ids, so `de-DE` and `en-US` are refused though the facade's spec says `"en-US"` | `locale/mod.rs` `get_locale`; SPEC-0001 `WorkbookOptions` |
+  | Stored text | read under the workbook's locale and language: a replica's write (`Input::Stored`) and `Input::StoredFormula` parse a literal with `self.locale` and a formula with the active parser, so a stored `1.5` or `=SUM(1.5,2)` is not read as en-US in a de-DE workbook | `stored_input.rs`; `typed_input.rs`; `workbook/stored.rs` ("`None` when the workbook parses formulas in another locale or language") |
+  | The collaborative gate | only a V1 or V2 document's locale is compared with `en-US`; a V3 document's is never read, and `EngineOptions` has no locale field (`deny_unknown_fields`), so the wasm engine is always built en-US | `rustsheet-sheet-ops/src/compat.rs` `legacy`, `evaluate`; `rustsheet-contracts/src/determinism.rs`; `rustsheet-wasm/src/engine.rs` |
 
 - The collaborative sheet's documents have a `locale` key (BCP 47). It is always `en-US` today, and an older
   document that carries another locale is refused as `UnsupportedSemantics`
   (`crates/rustsheet-sheet-ops/src/schema.rs`, `compat.rs`). So a German or French document cannot be opened at
   all until its locale has evidence.
-- Fourteen tasks wait for this spec's inventory (T-4811 to T-4821 directly or through the probes).
+- Eleven tasks wait for this spec's inventory (T-4811 to T-4821, directly or through the probes).
 
 ## Goals / non-goals
 
@@ -79,9 +81,11 @@ re-asked by a probe.
   or decimals"); `Application.decimalSeparator` and `thousandsSeparator` are "based on the local Excel settings",
   and `useSystemSeparators` says whether they are the system's
   (learn.microsoft.com/en-us/javascript/api/excel/excel.application).
-- **Neither setting is in the file.** An xlsx stores formulas and number formats in their en-US form, and
-  `Range.formulas`, `numberFormat` and `valuesAsJson` are locale-independent: "Data returned from this API always
-  aligns with the en-US locale" (`valuesAsJson`).
+- **Neither setting is in what the API reads back.** `valuesAsJson` is documented locale-independent: "Data
+  returned from this API always aligns with the en-US locale". That an xlsx file stores formulas and number
+  formats in their en-US form, and that `Range.formulas` and `numberFormat` read so, is our reading of the file
+  format and of the `formulasLocal` and `numberFormatLocal` twins; no page fetched says it, and control G3 asks
+  it.
 - **A plain value write is not typing.** `Range.values`: "Locale-shaped strings (such as the date "19-8-2025" in
   nl-NL or fr-FR, format DD-MM-YYYY) are stored as text instead of as dates. To ensure dates are stored as dates,
   use a locale-aware API like `formulasLocal`". This matters for the harness: its typed entries are a `values`
@@ -120,11 +124,11 @@ Probe shapes (Design 5 says how the harness carries each):
 
 | Shape | What is observed | Exists today |
 |---|---|---|
-| **V** | the value of a formula stored in the file in its en-US form, calculated under the locale | yes |
+| **V** | the value of a formula stored in the file in its en-US form, calculated under the locale | for an xlsx case, yes; a spec-built case writes its formulas through `Input::StoredFormula`, which reads them under the suite's locale today (Problem), so not before Rollout 3 |
 | **T** | the value, and the number format Excel chose, of a string typed into a cell under the locale | as `{"entered": …}`, sent in a way that is not typing under another locale (U1) |
 | **D** | the displayed text of a cell (`Range.text`) under the locale | yes, as `"text": […]` |
 | **L** | a stored formula as the locale shows it (`formulasLocal`), and a formula typed in the locale read back in its stored form | no (T-4811) |
-| **O** | an Office.js fact Graph cannot read: `cultureInfo`, `numberFormatLocal`, the separators in force | no; the Script Lab request `docs/research/workbook-locale-probe` |
+| **O** | an Office.js fact Graph cannot read: `cultureInfo`, `numberFormatLocal`, the separators in force | no; a Script Lab request, as `docs/research/t5145-recalc-probe` is |
 
 "Decides" says which of Excel's two settings we believe decides the item: **R** the regional format, **L** the
 display language, **?** unknown. Every entry of that column is a belief until its probe is filled.
@@ -168,6 +172,9 @@ display language, **?** unknown. Every entry of that column is a belief until it
 | C7 | AM/PM text | R | | D |
 | C8 | Booleans and errors shown in a cell (`WAHR`, `#WERT!`) | L | by language (`cell.rs`); an error with no `Language` field (`#GETTING_DATA`) prints in English (`token.rs`) | D |
 | C9 | A value turned to text in a formula (`1.5&""`, `TRUE&""`, `TEXT(1.5,"General")`) | R and L | | V |
+| C10 | The code `m/d/yyyy` written out, as a custom format of the file or in `TEXT(x,"m/d/yyyy")` (C3 is the ids with no code) | R | the code as written | D, V |
+| C11 | Which character the group separator is where it is a space (fr-FR: U+0020, U+00A0 or U+202F), in displayed text and in typed input | R | CLDR's | D, T |
+| C12 | The percent formats 9 and 10 (a space before `%`, its place) | R | fixed en-US | D |
 
 **D. Formula language and syntax** (T-4819)
 
@@ -180,10 +187,11 @@ display language, **?** unknown. Every entry of that column is a belief until it
 | D5 | Array constants: the row and the column separator | R | parser and printer disagree (Problem) | L |
 | D6 | Boolean and error literals in a formula (`WAHR`, `#NV`) | L | by language | L |
 | D7 | Structured-reference keywords (`[#Kopfzeilen]`, `[#Daten]`, `[@]`) | L | | L |
-| D8 | R1C1 letters (de `Z1S1`, fr `L1C1`) | L | | O |
-| D9 | FORMULATEXT | ? | English names with the locale's separators (`=SUM(1,123; 2)` under fr, `test/test_fn_formulatext.rs`) | V |
-| D10 | The type arguments of CELL and INFO (`CELL("Zeile")`) | L | English only (`functions/information/mod.rs`) | V |
+| D8 | R1C1 letters (de `Z1S1`, fr `L1C1`), in the UI and in values: `ADDRESS(1,1,1,FALSE)`, `INDIRECT("Z1S1",FALSE)`, and INDIRECT of a localized structured-reference keyword | L | | O, and V for the three functions |
+| D9 | FORMULATEXT. It returns formula text as a value, so it uses the document's settings and never a viewer's view (Design 1) | ? | English names with the locale's separators (`=SUM(1,123; 2)` under fr, `test/test_fn_formulatext.rs`) | V |
+| D10 | The type arguments of CELL and INFO (`CELL("Zeile")`), and their results (`CELL("format")`'s codes, INFO's texts) | L | English only (`functions/information/mod.rs`) | V |
 | D11 | `\` in a name where it is also a separator (docs/excel-semantics/references.md, UNVERIFIED) | R | a name character only when the decimal is `.` | L |
+| D12 | The separator of an inline list in a data validation (`a;b;c` or `a,b,c`) | R | | O |
 
 **E. Format codes written in the locale** (T-4820)
 
@@ -205,6 +213,7 @@ display language, **?** unknown. Every entry of that column is a belief until it
 | F4 | Text comparison and order: `"ä"<"b"`, SORT, MATCH with 1 and -1, `"ß"="ss"` | ? | no locale (`functions/util/collation.rs`) | V |
 | F5 | The first day of the week where a function has a default (WEEKDAY, WEEKNUM) | ? | fixed | V |
 | F6 | The default name of a new sheet (`Tabelle1`) and of a new table or pivot caption | L | sheet names by language (`new_empty.rs`); pivot captions fixed English (`pivot/layout/render.rs`) | O |
+| F7 | The separators ARRAYTOTEXT and VALUETOTEXT write, in both formats | R | fixed en-US | V |
 
 **G. What does not change** (controls; each must be probed to equal en-US)
 
@@ -212,9 +221,9 @@ display language, **?** unknown. Every entry of that column is a belief until it
 |---|---|---|
 | G1 | Arithmetic, rounding, error propagation, the date system and serials | V |
 | G2 | A format with a locale tag (`[$-407]dddd`) shows that tag's names under any workbook locale | D |
-| G3 | A stored formula and a stored format code read the same under every locale (a file written under de-DE opens under en-US) | V |
+| G3 | A stored formula's syntax (function names, separators, numeric literals) and a stored format code read the same under every locale (a file written under de-DE opens under en-US). Its string literals are not syntax: `TEXT(A1,"TT.MM.JJJJ")`, `VALUE("1,5")` and `SUMIF(A:A,">1,5")` keep their text, and their values follow the locale (groups B, E and F) | V |
 | G4 | EXACT, FIND, SEARCH, SUBSTITUTE and the wildcards | V |
-| G5 | Text functions that count bytes (`LENB("é")` is 1 in a single-byte locale) | V |
+| G5 | Text functions that count bytes: what `LENB("é")` is under each of the five locales (we expect 1 in all five, none being a double-byte locale; not documented for them) | V |
 
 ### Unknowns that decide the design, not only a table entry
 
@@ -226,6 +235,12 @@ display language, **?** unknown. Every entry of that column is a belief until it
 | U4 | Do untagged month and day names follow the regional format or the display language? | C5 and A3 move likewise |
 | U5 | Is the argument separator the regional list separator, independent of the decimal separator? | If it is derived, `FormulaSyntax` (Design 3) loses a field |
 | U6 | Does Excel for the web have the separator override at all? | If it does, the oracle targets must pin it off |
+
+U3 and U4 ask which of the two settings decides an item, so they need a target where the two differ: a site with
+de-DE regional settings and English as its language, if U2 shows that a target's language can be chosen. U5 needs
+a locale whose list separator is not what its decimal separator implies; we believe none of the five in scope is
+one (`,` for en-GB, `;` for the other four), so U5 is asked on a sixth site, or stays a belief at M17's exit and
+the "Decides" column says so for the rows that rest on it.
 
 ## Design
 
@@ -240,25 +255,45 @@ A workbook has two settings that evaluation reads, and both belong to the docume
 
 Both feed evaluation: `VALUE("1,5")`, `TEXT(x,"TT.MM.JJJJ")` and `TRUE&""` have values that depend on them. So in
 a collaborative document they must be the document's, or two replicas compute different values from the same
-operations and never converge. Excel does not have this property: two co-authors with different regional settings
-each calculate under their own. Google Sheets does, and it is the only choice a replicated engine has (Alternatives
-1).
+operations and never converge. We believe Excel does not have this property (each co-author's Excel calculates
+under its own settings); no page fetched says so, and nothing here rests on it. Google Sheets has one setting for
+the spreadsheet, and that is the only choice a replicated engine has (Alternatives 1).
 
 A third thing is the viewer's and never reaches a value:
 
 - **the formula view**, the language and syntax in which one user reads and types formula text. A German user of
   an en-US document may read `=SUMME(A1; 1,5)`. Formulas are stored and replicated in their en-US form, so a view
   is a pure function from stored text to shown text and back. The first slice has one view, the document's own.
-  A per-viewer view is a later step (Rollout 12), and nothing in the first slice may prevent it: no stored or
+  A per-viewer view is a later step (Rollout 14), and nothing in the first slice may prevent it: no stored or
   replicated formula text is ever in a localized form.
 
 What follows from "the document's":
 - Changing `locale` or `language` is an edit of the document. It makes everything owed (SPEC-0002 Design 9): the
   next recalculation is a full one, and its change set lists every value that changed.
 - A typed entry is parsed under the document's locale and language into a value or a stored formula, by the
-  client that typed it. What is replicated is the value or the en-US formula, never the typed text. The facade
-  already has both forms (`Input::Parse` is typing; `Input::Value` and `Input::StoredFormula` are what a replica
-  applies).
+  client that typed it. What is replicated is the value or the en-US formula, never the typed text. A replica
+  applies `Input::Stored`. Today it and `Input::StoredFormula` read under the workbook's locale and language
+  (`stored_input.rs`); they must read en-US whatever the workbook's settings. That change precedes every
+  non-en-US suite and document (Rollout 3).
+- **What a document stores is en-US, whatever its locale** (the model lane's condition). The collaborative
+  document stores a cell as an input text or a formula text (`sheet_ops::grammar`), and that is canonical today
+  only because every document is en-US. Under another locale the client canonicalizes before it plans the write,
+  so the planner and the document's gate see en-US grammar only. The gate could not tell otherwise: it parses with
+  the engine's lexer and would refuse a de-DE formula, but `1,5` typed as a German number and `1,5` meant as
+  en-US text look the same to it.
+  - A formula becomes its en-US text: function names, separators, literals.
+  - A typed value becomes the canonical literal of what it parsed to, with the number format typing chose
+    written as a format: `5 €` is the number 5 and a currency format, `1.2.2001` a serial and a date format. It
+    does not become "what one would type in en-US": whether en-US typing reads some text back to the same value
+    and format is a probe item (group A), not something to store by.
+  - A forced text entry (`'1,5`) stays the text it is.
+  - Text that the en-US stored reading would not return as the same text is stored forced: `1,234.5`, `TRUE` or
+    `#N/A` typed as text under de-DE would otherwise come back as a number, a boolean or an error.
+  - A string literal inside a formula is not canonicalized, and cannot be: `TEXT(A1,"TT.MM.JJJJ")`,
+    `VALUE("1,5")` and `SUMIF(A:A,">1,5")` keep their text. So a change of locale rewrites no cell, and it does
+    change what such cells compute; that is the full recalculation above.
+  - The same holds for every formula a document stores outside a cell: a defined name's body, a conditional
+    format's rule, a data validation's formula, a table's calculated column. Each is stored in its en-US form.
 - Displayed text (`formatted`, `displayed`) follows the document's locale, so that a cell shows what
   `TEXT(cell, its format)` returns.
 - The editor takes what the document's locale writes. In a document whose locale writes `1,5`, a typed value and
@@ -298,10 +333,15 @@ pub struct FormulaSyntax {
 }
 ```
 
-It is data of the locale, filled from the D3 to D5 probes, not computed. A test asserts that the four characters
-are distinct where the grammar needs them to be and that every formula of the probe corpus printed under a
-locale parses back to the same tree under it. That property fails on main today for any array constant under a
-comma-decimal locale, whatever Excel's separators turn out to be.
+It is data of the locale, filled from the D3 to D5 probes, not computed. Two invariants, asserted by a test for every
+locale's row: `decimal` differs from the other three, and `array_column` differs from `array_row`. The lexer's rule:
+inside the braces of an array constant the two array separators win over name characters, so that `{WAHR.FALSCH}`
+under a locale whose column separator is `.` is two items and not one name; outside braces a character that is both a
+separator and a name character is read as today (inventory D11). The printer's separators are the same four, so it
+stops writing `/` between rows, which collides with `#N/A` and `#DIV/0!`. The test also asserts that every formula of
+the probe corpus printed under a locale parses back to the same tree under it, `=1.5+1` typed under a comma-decimal
+locale among them (inventory D4). That property fails on main today for any array constant under a comma-decimal
+locale, whatever Excel's separators turn out to be.
 
 ### 4. Excel's data, not CLDR's
 
@@ -393,31 +433,47 @@ impl Txn<'_> {
     pub fn set_locale(&mut self, tag: &str) -> Result<(), EditError>;
     pub fn set_language(&mut self, tag: &str) -> Result<(), EditError>;
 }
-/// A locale the engine can compute under, and whether Excel evidence stands behind it.
-pub struct LocaleInfo { pub tag: &'static str, pub verified: bool }
-pub fn supported_locales() -> &'static [LocaleInfo];
-pub fn supported_languages() -> &'static [LocaleInfo];
+pub fn supported_locales() -> &'static [&'static str];
+pub fn supported_languages() -> &'static [&'static str];
+/// A pair of settings the engine can compute under, and whether Excel evidence stands behind that pair.
+pub struct SettingsInfo { pub locale: &'static str, pub language: &'static str, pub verified: bool }
+pub fn supported_settings() -> &'static [SettingsInfo];
 ```
 
-- `verified` is true for en-US and `en` only, until a locale's M17 row exits (decision 0443 item 5). It is
+- Evidence is per pair, because an oracle target computes one locale with one language (Design 5). `verified` is
+  true for en-US with `en` only, until a pair's M17 row exits (the proposed decision 0443, item 5). A locale with
+  another language than its own (de-DE with `en`) is verified only if a target computed that pair. The list is
   generated from the milestone's exit rows, not hand-kept. Nothing is refused and nothing warns at run time.
 - `get_supported_locales()` (engine and Python) keeps returning ids; the Python binding gains the verified list and
   a docstring that names en-US as the only verified locale.
-- A formula is read and written in three forms, each already present or named here: stored (`StoredFormula`,
-  en-US), typed under the document's settings (`Input::Formula`, `Input::Parse`), and shown under the document's
-  settings (`cell().formula`). A per-viewer view adds a parameter to the last two (Rollout 12), not a new form.
+- A formula is read and written in three forms, each already present or named here: stored (`Input::Stored` and
+  `StoredFormula`: en-US once Rollout 3 has changed their reading), typed under the document's settings
+  (`Input::Formula`, `Input::Parse`), and shown under the document's settings (`cell().formula`). A per-viewer view
+  adds a parameter to the last two (Rollout 14), not a new form.
 - xlsx import and export are unchanged: the file carries neither setting, the host gives both at load, and a
   save writes en-US formulas and codes. The collaborative document carries them in its `locale` key and a new
   `language` key.
 
 ### 7. The collaborative document
 
-- The `locale` key keeps its meaning. A `language` key joins it, absent meaning the locale's language.
-- `compat.rs` refuses a document whose locale is not `en-US`. That refusal ends locale by locale: a document's
-  locale is accepted when `supported_locales()` reports it verified. Until then the refusal is right: opening the
-  document would change what it computes.
+- The `locale` key keeps its meaning. A `language` key joins it, absent meaning the locale's language. It is
+  additive: while it is absent the seed and the contract's vectors do not change (the model lane's read).
+- Today only a V1 or V2 document's locale is compared with `en-US` (`compat.rs`, `legacy`); a V3 document's is
+  never read, and the wasm engine is built from `EngineOptions`, which has no locale field. So a current client
+  would read a de-DE document as readable and compute it as en-US, and replicas would diverge. Before any client
+  may write another locale:
+  - a locale other than `en-US`, or a present `language` key, adds a required capability to the document, so a
+    reader that does not know it reports `UnsupportedRequiredCapabilities` and computes nothing;
+  - `compat.rs`'s `evaluate` checks both keys against `supported_settings()` and accepts a pair when it is
+    verified. Until then the refusal is right: opening the document would change what it computes;
+  - `EngineOptions` and `CalcIdentity` (`rustsheet-contracts`) gain both fields, with a bump of `semantics`, and
+    the wasm engine builds its workbook from them;
+  - both keys are bounded in length, as V2 bounds `locale` (directive 5), and `get_locale` no longer echoes an
+    unbounded input in its error.
 - A change of the document's locale is one operation on the document's metadata. Every replica applies it and
-  recalculates fully.
+  recalculates fully. The metadata is outside every undo root, as the calculation settings are, so Ctrl+Z does
+  not take a locale change back. That is intended: it is a setting of the document, and changing it back is
+  another change. Stored inputs are en-US (Design 1), so a change of locale rewrites no cell.
 
 ## Alternatives considered
 
@@ -434,8 +490,8 @@ pub fn supported_languages() -> &'static [LocaleInfo];
 5. **Separators as host options**, as HyperFormula has and as Excel's override is. Every replica would have to
    hold the same options, so they would be document settings with more states to probe: five locales become five
    times every separator choice. If a customer needs the override, it is a decision of its own, after U6.
-6. **Refuse the unverified locales until they exit.** Decision 0443 item 5 rejects it: callers pass a locale
-   today.
+6. **Refuse the unverified locales until they exit.** The proposed decision 0443, item 5, rejects it: callers pass
+   a locale today.
 7. **Store the locale in the xlsx**, as a custom property. Excel would ignore it, and a file opened in Excel
    computes under that user's settings whatever it says. The host that loads the file knows its user.
 
@@ -461,24 +517,32 @@ pub fn supported_languages() -> &'static [LocaleInfo];
 
 Each step is an existing task, S or M. A step relies only on the designs named.
 
-1. **T-4808** (decision 0443): M17 exists. Needs the project lead's four answers.
-2. **T-4822**: the marking of Design 6, and tags with aliases (Design 2). It may start at once.
-3. **T-4809**: an oracle target per locale with its canary (Design 5). It settles U1, U2 and U6 before anything
+1. **T-4808** (the proposed decision 0443): M17 exists. Needs the project lead's four answers.
+2. **T-4822**: the marking of Design 6 (`supported_settings()` and the docs), as its criteria say. It may start at
+   once.
+3. Not yet a task (engine; filed when T-4808 is ruled): the stored reading is en-US. `Input::Stored` and
+   `Input::StoredFormula` read en-US whatever the workbook's settings; tags with aliases (Design 2), and the
+   keyed load path compares canonical tags (`KeyLexer::reads` compares `"en"` today, so a tag `en-US` would
+   silently lose it); `Txn::set_locale` and `set_language` make everything owed (`Model::set_language` does not
+   recalculate today). It precedes every non-en-US suite and document.
+4. **T-4809**: an oracle target per locale with its canary (Design 5). It settles U1, U2 and U6 before anything
    else is filled, because they decide which shapes Graph can serve.
-4. **T-4811**: the suite's `locale`, the sidecar's fields, shape L, the report rows (Design 5).
-5. The Script Lab request `workbook-locale` (docs/research/workbook-locale-probe/): one script a person runs under
-   each setting. It answers U1 and U3 to U6 and gives a first reading of most of the inventory, the O items
-   (E4, E5, F6) included. Two crossed runs (German format with English language, and the reverse) tell which of
-   Excel's two settings decides each item. D8 (R1C1 letters) is read in the UI.
-6. **T-4812 to T-4816**: the inventory's cases, written once (T-4812, de-DE, writes the shared cases; the others
+5. **T-4811**: the suite's `locale`, the sidecar's fields, shape L, the report rows (Design 5).
+6. A Script Lab request for the O items (D8, D12, E4, E5, F6, and whatever U1 and U2 push there), written with
+   T-4812.
+7. **T-4812 to T-4816**: the inventory's cases, written once (T-4812, de-DE, writes the shared cases; the others
    fill them and add what their locale alone needs), each recording its answers in docs/excel-semantics/ and
    generating its locale's rows of the tables of Design 4.
-7. **T-4819**: `FormulaSyntax` (Design 3) and the language table. It fixes the array-constant round trip under
+8. **T-4819**: `FormulaSyntax` (Design 3) and the language table. It fixes the array-constant round trip under
    every locale.
-8. **T-4817**: typed input and coercion, groups A and B.
-9. **T-4818**: displayed text, group C.
-10. **T-4820**: format codes written in the locale, group E.
-11. **T-4821**: the locale-aware functions, group F.
-12. Not yet a task: a per-viewer formula view (Design 1). It is filed when the collaborative sheet asks for it.
+9. **T-4817**: typed input and coercion, groups A and B.
+10. **T-4818**: displayed text, group C.
+11. **T-4820**: format codes written in the locale, group E.
+12. **T-4821**: the locale-aware functions, group F.
+13. Not yet a task (the model and contracts lanes): the collaborative gate of Design 7, before any client may
+    write a locale other than en-US. It is filed when the collaborative sheet asks for its first locale.
+14. Not yet a task: a per-viewer formula view (Design 1). It is filed when the collaborative sheet asks for it.
 
-The first locale the collaborative sheet needs goes through steps 6 to 11 first (decision 0443, question 4).
+The engine tasks of steps 8 to 12 each depend on all five probe tasks today. If the collaborative sheet needs one
+locale first (the proposed decision 0443, question 4), their `depends_on` is cut to that locale's probe task, and
+the other locales follow through the same steps.

@@ -8,8 +8,9 @@ into SPEC-0002 as Design 9. Rules marked (probe Mn) are provisional until the pr
 - **One mechanism, three modes.** Every edit marks what it can change (Excel does this in every mode). The mark is
   the *owed set*. Automatic pays it at once, which is today's behaviour bit for bit. Manual pays on `calculate()`
   (F9). OnDemand pays what a read or a watched range needs.
-- **Nothing new in the evaluator.** A deferred recalculation is a restricted pass (SPEC-0002 Design 4) whose edit is
-  the union of the deferred transactions. All of Design 4's guards apply unchanged.
+- **One new path in the evaluator.** A deferred recalculation is a restricted pass (SPEC-0002 Design 4) whose
+  edit is the union of the deferred transactions; all of Design 4's guards apply unchanged. The two commands that
+  calculate less than the workbook share one new path, the *scoped run* (below).
 - **Two slices of OnDemand.** First: a read pays everything owed, so N writes and one read cost one recalculation.
   Second, after the dependency-first traversal exists: a read pays only its cone.
 - **`watch`** names ranges an OnDemand workbook keeps fresh at every edit (the viewport, chart ranges).
@@ -29,6 +30,30 @@ into SPEC-0002 as Design 9. Rules marked (probe Mn) are provisional until the pr
     as the documented one. The rule is again the first draft's: it owes everything, and nothing is calculated
     until `calculate`. The probes ask Excel (M12, and M15 and M16 for a name added and a row hidden).
   A provisional rule is now what Microsoft documents where its pages agree, and says both sides where they do not.
+- **Changed at 15:05Z on 2026-11-11, after round 1 of this section's own review (CR-321724568).** The reviewer
+  showed four holes, each with a reproducer, and all four are fixed:
+  - The entry evaluation ran only when the engine's incremental machinery was available (an index, a fixed clock,
+    a small closure). On the default clock an ordinary `=A1+2` typed in Manual mode would have shown nothing until
+    F9. It is now part of the mode: **every formula written in Manual mode is evaluated at once**, whatever the
+    optimizations are doing, array and spilling formulas included, and the test reference does the same.
+  - Calculate Sheet (Shift+F9) fell back to calculating the whole workbook when the incremental pass was refused.
+    It now **never calculates another sheet**. In the first slice it runs every formula on the sheet and leaves
+    the status at "Calculate" until F9; running only the dirty cells and clearing them is a later step.
+  - A workbook **loaded without recalculation** was treated as calculated, so OnDemand could hand out the file's
+    stale cached values. Such a load now owes a full calculation.
+  - A **watch** registered over a range that was already stale was not refreshed by the next edit. A watch is now
+    pending while its range is stale, however it got there.
+  Both commands that calculate less than the workbook now share one path, the *scoped run*: a set of formula
+  cells that evaluate each other and read every other formula cell as stored. The engine lane read it before it
+  was sent and agreed.
+- **Changed again at 15:31Z, after round 2.** The four holes above are closed. The reviewer found two more in
+  the scoped run itself, both where I had described only the ordinary case: a circular reference inside the run
+  must follow the workbook's setting (iterate when iterative calculation is on, keep the old values when it is
+  off), and the few functions whose value depends on Excel's calculation order (WEEKNUM's and AMORDEGRC's
+  quirks) must run in that order inside the run. The scoped run is now defined as the evaluator's own full
+  recalculation with its roots confined to the chosen cells, and its test compares it with a full recalculation
+  of a copy of the workbook in which every other cell is frozen at its stored value. One thing is left out by
+  name: a scoped run does not refresh a data table (what-if table); F9 does.
 - **Reviewed by the engine lane** (5 blockers, all folded in): a `calculate` with nothing owed still runs a full
   pass when the stored values are not a normal full pass's; Automatic keeps exactly today's passes, and no read
   or save fails there; a host gets a read of the stored value for its before-image.
@@ -62,11 +87,16 @@ recalculation lists the corrected cells. No other engine has this limit, because
    mine: build (a) and (b) now, (c) when the dependency-first pass has landed and a viewport measurement asks for
    it.)
 
-7. A formula written in Manual mode is **evaluated at once**, as Microsoft documents, from the stored values of
-   the cells it reads; no other formula cell is evaluated (the engine lane's rule). In the first slice three
-   kinds show their value only at `calculate`: an array formula or spill anchor, a formula that draws (RAND), and
-   any formula of a workbook with no index. A stale or absent value is reported (`is_stale`), never a wrong one.
-   Acceptable? (yes/no; mine: yes.)
+7. A formula written in Manual mode is **evaluated at once**, as Microsoft documents, whatever the engine's
+   optimizations are doing. Formulas written together evaluate each other; every other formula cell is read as
+   stored (probe M2 asks Excel whether it calculates a dirty precedent first). Acceptable? (yes/no; mine: yes.)
+8. **Calculate Sheet** runs every formula on the sheet and releases nothing in the first slice, so after it the
+   status still says "Calculate" where Excel's may not (Microsoft: Shift+F9 "resets all previously uncalculated
+   (dirty) cells as calculated"; probe M14). The values on the sheet are the same, and nothing off the sheet is
+   calculated. Acceptable for the first slice? (yes/no; mine: yes.)
+9. A workbook **loaded without recalculation owes a full calculation**: in Manual mode the status says
+   "Calculate" and a save needs a calculation first; in OnDemand mode the first read computes; Automatic is as
+   today. Agree? (yes/no; mine: yes.)
 
 ## Probes this section waits for
 
@@ -123,12 +153,13 @@ where it documents anything; where this design departs from that, it gives the r
     recalculation will not be performed on load, even when this attribute is set" (7). "When you select Manual, Excel
     automatically selects the Recalculate workbook before saving check box" (3).
   - Documentation is not evidence, so the probe request `t5145-recalc` asks Excel each of these (the M cases).
-    Documented and probed: an entered or edited formula is evaluated at once (M3, M4); F9 runs a volatile cell
-    with nothing dirty (M6); what a save and a load of a Manual workbook do (M9, M10); what Shift+F9 leaves
-    dirty (M14). Not settled by the pages, and probed: whether a row inserted, a name added or a row hidden in
-    Manual mode recalculates (M12, M15, M16). Not documented, and probed: what a read of a dirty cell returns
-    (M1); whether a formula entered over a dirty precedent reads its stored value or calculates it first (M2);
-    whether a pasted formula counts as entered (M13); a switch back to Automatic (M11).
+    Documented and requested for probing: an entered or edited formula is evaluated at once (M3, M4); F9 runs
+    a volatile cell with nothing dirty (M6); what a save and a load of a Manual workbook do (M9, M10); what
+    Shift+F9 leaves dirty (M14). Not settled by the pages, and requested for probing: whether a row inserted, a
+    name added or a row hidden in Manual mode recalculates (M12, M15, M16). Not documented, and requested for
+    probing: what a read of a dirty cell returns (M1); whether a formula entered over a dirty precedent reads
+    its stored value or calculates it first (M2); whether a pasted formula counts as entered (M13); a switch
+    back to Automatic (M11).
   - OnDemand and `watch` are not Excel's. They are this engine's, and their reference is a full recalculation, as
     for every other path of this spec.
 - **Other engines** (the same note).
@@ -163,8 +194,12 @@ where it documents anything; where this design departs from that, it gives the r
     edit's `RefMap`, and this design does not do that. Nothing is calculated until `calculate` *(probe M12: if
     Excel recalculates at an insert in Manual mode, the transaction ends by paying everything it owes, as an
     Automatic one does, and the rule changes in this one place)*.
-  - A load leaves nothing owed, whether or not it recalculated: the stored values are the file's or the load's,
-    and the first pay after it is a full pass, since no work bound is known ("Paying").
+  - A load that does not recalculate leaves its cached formula values unverified and owes a full calculation.
+    Automatic and Manual retain their specified stored-value read behavior, but OnDemand treats those caches as
+    stale: `compute` must run a full pass before exposing them as calculated. A load that recalculates is settled
+    only if that calculation was not cancelled. Imported cached values alone do not establish a work bound or
+    freshness. In Automatic mode nothing reads the owed set between edits, so today's behaviour stands: a read
+    returns the file's cached value, a save succeeds, and the first edit recalculates fully.
   - A setter that forgets the work bound (`set_iteration`, a lowered ceiling, the depth and stack limits,
     `set_clock`) and `load_stored` make everything owed: the stored values are no longer a recalculation's under
     the new setting or cells. In Automatic mode nothing reads the owed set between edits, so today's behaviour
@@ -192,48 +227,99 @@ where it documents anything; where this design departs from that, it gives the r
   - **Automatic.** `Workbook::edit` ends by paying everything it owes. The same passes run as today, with the
     same values, outcomes and edit paths: nothing is owed when `edit` returns, an empty transaction still runs a
     full pass, and no read and no save ever fails for being owed (the two errors below are Manual's and
-    OnDemand's). Between edits something can be owed, after a setter: as today, it is paid by the next edit.
-  - **Manual.** `edit` marks. It pays nothing, with one exception: it evaluates the formulas it wrote (the next
-    item). `Workbook::calculate` pays everything (F9).
-    `Workbook::recalculate` stays a full pass (Ctrl+Alt+F9), and ends settled: the edits it makes itself (it
-    refreshes `refreshOnLoad` pivots through `edit`) pay, whatever the mode. `Workbook::set_calc_mode(Automatic)`
-    pays everything *(probe M11)*. `Workbook::calculate_sheet(sheet)` is Shift+F9, which "recalculates the cells
-    marked for calculation in the active worksheet only" (S1): it runs the owed cells of that sheet as a
-    restricted pass over those cells alone, which read stored values on the other sheets, and a cell it ran
-    stays owed while one of its precedents is, so `calculate` pays it again; a sheet pass that Design 4 rejects
-    is followed by `calculate` *(probe M14)*. Microsoft also documents that Shift+F9 "resets all previously
-    uncalculated (dirty) cells as calculated" (S3). This design keeps such a cell owed because its value is
-    stale, and F9 must run it again in Excel too, as a dependent of a dirty cell on another sheet. The two
-    differ only in what `is_stale` and `calc_pending` say in between, and the F9 after the probe's Shift+F9
-    tests which. The UI lane asked for it (Formulas > Calculate Sheet).
+    OnDemand's). Between edits something can be owed, after a setter or a `calculate_sheet`: it is paid by the
+    next edit, as today after a setter.
+  - **Manual.** `edit` marks. It pays nothing, with one exception: it evaluates the formulas it wrote (the
+    entry evaluation, below). `Workbook::calculate` pays everything (F9). `Workbook::recalculate` stays a full
+    pass (Ctrl+Alt+F9), and ends settled: the edits it makes itself (it refreshes `refreshOnLoad` pivots
+    through `edit`) pay, whatever the mode. `Workbook::set_calc_mode(Automatic)` pays everything *(probe M11)*.
+  - **The scoped run.** Two commands calculate less than the workbook: the entry evaluation and Calculate Sheet
+    (the next two items). Each runs a set R of formula cells. The run is the evaluator's own driver
+    (`Model::evaluate`: its passes and their restarts, the pass in Excel's order, the iteration sweeps, the
+    limits) with its roots confined to R, by these rules.
+    - The run uses the evaluator's calculation-order rules with its roots confined to R. Ordinary evaluation
+      runs the dynamic anchors of R first and the remaining roots in (sheet, row, column) order, with the usual
+      nested evaluation. When order-state readers require SPEC-0017's Excel-order driver, the scoped run uses
+      that driver's ordering, dependency-driven rescheduling and order-state restoration within R instead. Any
+      order-mode restart remains within R; a stored read outside R neither evaluates nor schedules that cell.
+    - A cycle inside R uses the workbook's configured circular-reference semantics. With iterative calculation
+      disabled, the cycle and its in-scope readers retain their pre-run stored values as described in recalc.md.
+      With iterative calculation enabled, the run discovers and sweeps the in-scope cycle members and their
+      in-scope readers using the configured iteration count, convergence threshold and SPEC-0028 limits. Reads
+      outside R remain stored reads, and no sweep evaluates or writes a formula cell outside R.
+    - A read of a formula cell outside R takes the value stored at that moment and evaluates nothing, whether
+      that cell is owed or not and wherever it is placed. So does a read of a member of a spill or of an array
+      formula whose anchor is outside R: it runs no anchor and restarts nothing. A cycle that closes only
+      through such a read is no cycle for the run.
+    - The run writes the cells of R and what their evaluation writes, the members of a spill or of an array
+      formula, and no other cell. It runs no data table: a table's result cells hold no formula, and they keep
+      their values until `calculate`. A workbook with a data table has no index, so everything is owed there.
+    - It starts as a pass starts, with fresh per-pass caches and a fresh order state. It is a recalculation for
+      SPEC-0028, confined to R: each formula has its own limit; the run has the pass allowance and the ceiling,
+      and does at each what a recalculation does (share mode, exhaustion); a host can cancel it; and
+      `last_recalc_outcome` reports it.
+    - It depends on nothing an optimization decides. It runs the same cells, from the same stored values to the
+      same values, with incremental recalculation on or off, with an index or without one, whatever is owed
+      and whatever `can_restrict` says. It asks none of Design 4's conditions, and it is never rejected or
+      followed by another pass.
+    - It is no pass for Design 4. What Design 4 keeps from the last full pass stays as it was (the work bound,
+      the flat, search and own-stop flags, the anchors' ranks, whether that pass ran in Excel's order), and so
+      does the record of the last used rows: a row the run moves is a move since the last pass, and the pay
+      takes it. Where a run cannot leave one of these as it was, everything is owed after it. Two such runs are
+      named (the engine lane): one in which a dynamic anchor of R restarts, since a restart reorders the
+      anchors; and one in which the footprint of a spill changes, since it writes or clears cells outside R,
+      possibly over stored blanks.
+    - It makes no claim of a recalculation's values, and it takes no cell out of the owed set. Every formula
+      cell whose value the run changed is owed after it, with its readers; where no index gives the readers,
+      everything is. A spill's members are their anchor's for this.
   - **A formula written in Manual mode is evaluated when it is written**, as Microsoft documents (S3, above)
     *(probes M3 and M4)*. A pasted or filled formula is a written formula *(probe M13)*. The transaction ends
-    with a pass over its written formula cells alone, the **entry evaluation**. The written cells stay owed, with
-    their readers, so `calculate` runs them again under Design 4; the value shown in between makes no claim of
-    being a recalculation's, and `is_stale` says so. Its rules:
-    - it never evaluates another formula cell. A read of any formula cell, placed before or after the written
-      one, owed or not, takes its stored value *(probe M2: whether Excel calculates a dirty precedent first is
-      not documented)*. So Design 4's nesting and read-ahead rules do not apply to it, and it is not rejected
-      for them: the pay recomputes the written cells in the exact order, and nothing the entry evaluation left
-      is read as clean (the engine lane's rule);
-    - it runs only when the transaction owes a set of cells. A transaction that owes everything (a written
-      array formula or spill anchor, a formula the index does not model, an op that is not a cell write)
-      evaluates nothing at entry, and its formulas show their values at `calculate`;
-    - a written formula that draws (RAND, RANDBETWEEN, RANDARRAY) is left unevaluated. This guards Design 11.1:
-      today a workbook that holds one has no index, so the rule before this one already covers it; once such
-      a formula is always dirty instead, a draw at entry would move the sequence every later pass reads. A
-      written formula that reads the order state ends the pass as Design 11.1 ends any restricted pass, and
-      its cells are left unevaluated. Under a fixed clock TODAY and NOW leave nothing behind, and are
-      evaluated;
-    - one that leaves normal mode makes everything owed, since the work bound is lost;
-    - it records the last used rows as every pass does.
+    with the **entry evaluation**, a scoped run over its written formula cells. Entry evaluation is part of
+    Manual-mode semantics, not an incremental optimization. A formula write uses the same entry-evaluation rules
+    with incremental calculation enabled or disabled, whether the debt is a set or everything, and whether an
+    index is available. The closure threshold and `can_restrict` do not determine whether an entered formula is
+    evaluated. The incremental-off reference performs the same entry evaluations. Their cached results are part
+    of the subsequent calculation history: a later circular reference can retain them. Design 4 restores a
+    rejected attempt to the state before that attempt; it does not remove earlier committed entry evaluations.
+    - No formula is excepted. A dynamic array formula spills at entry, an array formula fills its range, a
+      formula that draws (RAND) draws, an order-state reader runs in Excel's order among the written cells, and
+      a cycle among them is swept when iteration is on, in the reference as here.
+    - A written formula reads the stored value of every formula cell its transaction did not write, stale or
+      not *(probe M2: whether Excel calculates a dirty precedent first is not documented)*. Formulas written
+      together evaluate each other. So an entry that closes a loop through a cell it did not write finds no
+      loop: `calculate` does.
+    - The written cells are owed, with their readers, by the transaction's own marking. So `is_stale` reports
+      them, and `calculate` runs them again.
+    - A transaction that owes everything (a structural edit beside the formula, no index) still evaluates the
+      formulas it wrote, after all its ops are applied.
 
     In OnDemand mode, which is ours, a written formula is not evaluated at entry: it is owed, and a read of it
     fails until it is computed.
+  - **Calculate Sheet.** `Workbook::calculate_sheet(sheet)` is Shift+F9, which "recalculates the cells marked for
+    calculation in the active worksheet only" (S1). `calculate_sheet(sheet)` calculates the requested worksheet
+    only and reads stored formula values on other worksheets. It never substitutes a workbook-wide `calculate`.
+    A cell it runs remains owed while an external precedent remains owed. This command needs a worksheet-scoped
+    evaluation path and its own budget handling; failure of Design 4's full-workbook-equivalence guards does not
+    authorize evaluating another sheet. Cancellation or exhaustion preserves outstanding debt and does not
+    silently expand the calculation scope.
+    - It is a scoped run over every formula cell of the sheet, owed or not, as Excel's `Range.Calculate`
+      "recalculates just the cells in the given range regardless of whether they are dirty or not" (S1). So a
+      volatile cell of the sheet draws with nothing dirty.
+      Running the sheet's owed cells alone would make the cells that run, and so what draws on the allowance,
+      depend on the index. That is a later step with an argument of its own.
+    - In the first slice it releases nothing: every cell that was owed stays owed, the ones with no precedent
+      outside the sheet too, and `calculate` settles them. To release a cell is to claim a full calculation's
+      value for it, which needs Design 4's conditions for the sheet's run; that is the same later step.
+      Microsoft documents that Shift+F9 "resets all previously uncalculated (dirty) cells as calculated" (S3),
+      so until then `is_stale` and `calc_pending` report cells Excel's status bar would not *(probe M14)*.
+    - It makes the same run in every mode, and pays nothing else. In Automatic mode what it leaves owed (the
+      readers, on other sheets, of a volatile cell that drew) is paid by the next edit, as after a setter; in
+      OnDemand mode so are the watches it makes pending.
+    - The UI lane asked for it (Formulas > Calculate Sheet).
   - **OnDemand.** `edit` marks, then pays what the watched ranges need. `Workbook::compute(targets)` pays what the
     targets need. `calculate` pays everything.
-    - First slice: what a target needs is everything owed, when the target holds an owed cell, and nothing
-      otherwise. A batch of N writes and one read then costs one recalculation.
+    - First slice: what a target needs is everything owed, when the target is stale (`is_stale`, below), and
+      nothing otherwise. A batch of N writes and one read then costs one recalculation.
     - Second slice, after the dependency-first traversal exists (Design 13): what a target needs is its
       **cone**, the owed cells among the targets and their precedents. The precedents are read from what the
       index's build files for a formula (`leaves` and `instantiate`, a footprint rule's rectangle included,
@@ -246,12 +332,22 @@ where it documents anything; where this design departs from that, it gives the r
 - **`watch`.** `Workbook::watch(range) -> WatchId` and `unwatch(id)` name ranges an OnDemand workbook keeps fresh:
   every `edit` pays what they need before it returns, and its change set lists the values that changed. In
   Automatic and Manual modes a watch changes nothing. At most 4,096 ranges are watched; one more is refused
-  (directive 5). Whether a watch holds an owed cell is found in one walk of the cells the edit added to the owed
-  set against the watches' rectangles, sorted, so an edit costs O(added cells x log watches), not O(watches x
-  area). A watch is a rectangle of positions. It does not follow an insert or a delete of rows or columns:
-  after a structural edit the caller unwatches and watches again, as the engine worker does for the viewport's
-  rectangles (at most four a sheet, with frozen panes) and the charts' ranges (poc-model-cc). A deleted sheet's
-  watches go with it.
+  (directive 5). Watch scheduling uses the same stale predicate as `is_stale`, including everything-owed and
+  spill-induced sheet-wide staleness. A new watch and a switch into OnDemand must account for existing debt.
+  Watches left stale by cancellation remain pending. Every OnDemand edit pays all pending watches before
+  returning unless calculation is cancelled. Scanning only newly added debt is an optimization for updating this
+  pending set, not the test for whether a watch needs calculation.
+  - The pending set: a watch is pending while its range is stale. `watch` and `set_calc_mode(OnDemand)` decide
+    it by `is_stale` of the range. An edit or a scoped run adds the watches that its added cells touch, in one
+    walk of those cells against the watches' rectangles, sorted, O(added cells x log watches); every watch of
+    a sheet on which it owes a dynamic anchor; and every watch when it owes everything. A pay takes out the
+    watches whose range is no longer stale, and a cancelled one takes out none.
+  - `watch` itself computes nothing: its range may be stale until the next edit, and a read of it then fails as
+    any read of a stale cell does. A caller that needs it at once calls `compute`.
+  - A watch is a rectangle of positions. It does not follow an insert or a delete of rows or columns: after a
+    structural edit the caller unwatches and watches again, as the engine worker does for the viewport's
+    rectangles (at most four a sheet, with frozen panes) and the charts' ranges (poc-model-cc). A deleted
+    sheet's watches go with it.
 - **Reads.** The facade's reads take `&self` and never evaluate.
   - In Manual mode they return the stored value, stale or not, as Excel shows it *(probe M1)*.
     `Workbook::calc_pending()` is Excel's status-bar "Calculate" (`xlPending`): something is owed.
@@ -301,37 +397,45 @@ where it documents anything; where this design departs from that, it gives the r
   (I-06 `subscribe` and `watch`) to watches.
 - **Why it is exact.**
   1. *Automatic* runs the passes it runs today.
-  2. *Manual.* The reference is the same workbook with incremental recalculation off. There every transaction
-     owes everything, so `edit` evaluates nothing, and `calculate` runs `Model::evaluate`. With incremental
-     recalculation on, the only cells a pass changes between two `calculate` calls are the written formula
-     cells of an entry evaluation, and they are owed; so the stored value of every cell that is not owed is the
-     last recalculation's, as in the reference. The two differ between `calculate` calls only in owed cells,
-     which `is_stale` reports in both. The owed set holds every formula cell one of whose inputs changed since
-     then: each transaction adds its closure in the index as it then is, and a formula
-     written later is owed itself, with its readers. A formula that stopped reading a written cell stays owed,
-     which is a superset. The last used rows' moves are taken since the last pass at every transaction and once
-     more at the pay; a row a single step crosses lies between the recorded row and the row after that step
-     or the step before it, so a head any step crosses is owed. So `calculate` is a restricted pass whose edit
-     is the union of the deferred transactions, and Designs 3 to 6 apply to it as written. An entry
-     evaluation evaluates no cell but the written ones, neither draws nor reads the order state (its rules
-     above), so it leaves nothing behind that a later pass reads, and `calculate` computes what the reference's
-     does. When nothing is
-     owed and `can_restrict` fails, the pay is the reference's own full pass. A history with a loop, an
+  2. *Manual.* The reference is the same workbook with incremental recalculation off. A scoped run is the same in
+     both, by its rules: the same cells, from the same stored values, to the same values (a draw apart: the
+     engine draws from one unseeded generator, in a scoped run as in a pass, so the differentials leave a
+     workbook that draws out, as they do today). So the reference makes the same entry evaluations and the same
+     sheet runs, and before every `calculate` the two hold the same stored values: the last recalculation's, and
+     over them what the same scoped runs wrote. The reference owes everything, and its `calculate` is
+     `Model::evaluate`. Here, a formula cell that is not owed holds the value the last recalculation gave it, and
+     so does every cell it reads:
+     - each transaction adds its closure in the index as it then is, and a formula written later is owed
+       itself, with its readers. A formula that stopped reading a written cell stays owed, which is a superset;
+     - a scoped run adds every formula cell whose value it changed, with its readers;
+     - the last used rows' moves are taken since the last pass at every transaction and once more at the pay;
+       a row a single step crosses lies between the recorded row and the row after that step or the step
+       before it, so a head any step crosses is owed.
+
+     So `calculate` is a restricted pass whose edit is the union of the deferred transactions and of the scoped
+     runs' changes, started from the stored values the reference's full pass starts from, with Design 4's
+     records as the last full pass left them. Designs 3 to 6 apply to it as written: an accepted pass has the
+     full pass's values, and a rejected one is followed by the full pass itself. Where a full pass keeps a
+     stored value, it keeps the same one in both, a scoped run's included: a loop that a later edit closes
+     keeps the values from before the recalculation (recalc.md), and those are the same in both. When nothing
+     is owed and `can_restrict` fails, the pay is the reference's own full pass. A history with a loop, an
      Excel-order reader, a volatile draw or a work limit passed gives Manual other values than Automatic,
      because it recalculates less often. That is Excel's behaviour too, and it is why the reference is Manual
      with incremental off, not Automatic.
-  3. *OnDemand.* After `calculate` it is Manual's argument. The first slice only moves the `calculate` to the
-     first read, so it is exact at every read. With cones, a value `compute` returned before the workbook is
-     settled is the settled value **unless the recalculation that settles it leaves normal mode** (SPEC-0028:
-     share mode, or the ceiling spent), which `Workbook::last_recalc_outcome` reports and whose change set
-     lists the corrected cells. In normal mode a formula's value is a function of its inputs, the cone holds
-     every owed input of its cells, and the guards of Design 4 reject a cone pass that nests or reads ahead. What
-     a cone pass cannot know is the work of the cells it left owed, so it cannot tell whether a full pass of the
-     new state would share its work out. A host that needs the settled value calls `calculate`.
+  3. *OnDemand.* After `calculate` it is Manual's argument, without entry evaluations, which OnDemand does not
+     make. The first slice only moves the `calculate` to the first read, so it is exact at every read; a load
+     that did not recalculate owes a full calculation, so the first `compute` after it runs one. With cones, a
+     value `compute` returned before the workbook is settled is the settled value **unless the recalculation that
+     settles it leaves normal mode** (SPEC-0028: share mode, or the ceiling spent), which
+     `Workbook::last_recalc_outcome` reports and whose change set lists the corrected cells. In normal mode a
+     formula's value is a function of its inputs, the cone holds every owed input of its cells, and the guards of
+     Design 4 reject a cone pass that nests or reads ahead. What a cone pass cannot know is the work of the cells
+     it left owed, so it cannot tell whether a full pass of the new state would share its work out. A host that
+     needs the settled value calls `calculate`.
 - **What must be on main first.** T-5166's maintenance, or a formula write owes everything (above). Design
   11.1's list, or a workbook with a volatile cell has no index and every pay is a full pass. Design 13's
   traversal, for cones. With incremental recalculation off (`set_incremental(false)`; it is on by default since
-  decision 0422), every edit owes everything.
+  decision 0422), every edit owes everything. A scoped run needs none of these.
 - **What the implementation may rely on.**
   1. Design 3's closure may be computed at the transaction and kept: the readers of a cell depend on the formulas
      alone (`closure.rs`).
@@ -343,6 +447,21 @@ where it documents anything; where this design departs from that, it gives the r
   4. The owed set belongs to the model, beside the work bound (`Incremental`).
   5. A cone pass leaves the owed set closed under readers, by the argument above, provided its precedents are
      the inverse of what the index files; the implementation asserts it in debug builds.
+  6. The scoped run is the one new path, for the entry evaluation and for `calculate_sheet`. It is
+     `Model::evaluate` with its roots confined to R and without its data-table phase. Its reader is the
+     restricted pass's: `clean_cell_value` (`read_index/pass.rs`) already lets a member of the set it is given
+     run and gives the stored value of any other formula cell, through `mark_readers_of` and `read_evaluated`,
+     so an index that exists records the read (the engine lane's point). What differs from `evaluate_cells`:
+     - the read-ahead and nesting flags decide nothing; `restricted_pass_allowed` is not asked; nothing is put
+       back and no full pass follows; `Incremental`'s records of the last full pass are not written;
+     - the dynamic anchors of R and their spills are handled as a full pass handles them (a restricted pass
+       runs today only where nothing spills);
+     - the pass in Excel's order (`run_excel_order`) and the iteration sweeps (`iterate_cycles`) run too, each
+       over the cells of R alone. A restricted pass reaches neither today: `can_restrict` asks for no
+       iteration and no Excel order;
+     - one more reader needs the switch: `evaluate_spill_cell` (`evaluation.rs`) counts a member as a value
+       only if its anchor wrote it in the current pass, and otherwise runs the anchor, reads empty or restarts
+       the pass. In a scoped run a member whose anchor is outside R is read as stored there (the engine lane).
 - **What it must show.**
   - The metamorphic suite runs each generator in Manual mode with `calculate` at random points: incremental on
     against off after every `calculate`, values and change sets; on flat histories also against an Automatic
@@ -353,22 +472,69 @@ where it documents anything; where this design departs from that, it gives the r
     an empty cell under an owed anchor among them.
   - Entry evaluation, in Manual mode: a formula written over settled literals holds the Automatic twin's value
     when `edit` returns; written over an owed precedent, or over a formula cell placed after it, it holds the
-    value the stored precedent gives, and `is_stale` reports it; written as an array formula, or with a draw,
-    it is left unevaluated; in each case `calculate` then gives the twin's values, and no formula cell other
-    than the written ones was evaluated by the entry. A transaction with a structural edit owes everything.
+    value the stored precedent gives, and `is_stale` reports it; two formulas written together, the first
+    reading the second, hold the pair's values; a dynamic array formula spills and an array formula fills its
+    range, and everything is owed after a spill whose footprint changed; a formula that reads a member of a
+    spill it did not write holds the member's stored value, and the spill's anchor did not run; and no formula
+    cell the transaction did not write was evaluated. Each of these on the system clock,
+    with incremental recalculation off, in a workbook with no index, and with a closure past the quarter limit:
+    `=A1+2` over literals holds the same value in all four.
+  - The twin, an oracle for a scoped run that shares none of its confinement. Clone the workbook. Replace every
+    formula cell outside R by the value a stored read of it gives; an array formula or a dynamic anchor outside
+    R by a constant array formula that holds its stored values over the same footprint, so that a spill
+    reference to it still resolves and its members stay its members; and every data table's result cell by its
+    stored value. Drop the data tables (`TABLE()`; an Excel table and its range stay, so structured references
+    resolve). Run `Model::evaluate`. While the run stays in normal mode (SPEC-0028), the cells of R and their
+    members hold the clone's values, errors included. The generators check it for entries of one to many
+    formulas and for every sheet, on the metamorphic documents, on the loop generator with iteration off and
+    on, and on SPEC-0017's order shapes (the two replacements that keep references resolving are the engine
+    lane's).
+  - Cycles in a scoped run, in each caller. Iteration off: a self-reference and a two-cell cycle keep their
+    pre-run values, a nonzero one included, and so does a reader of the cycle in R. Iteration on, three
+    iterations, from stored zeros: `=A1+1` holds 3; B1 `=C1+1` with C1 `=B1+1` hold 5 and 6 (the sweep is in
+    sheet order and in place, recalc.md). A cycle that crosses the boundary of R is not swept: the cell outside
+    R is read as stored and is not written. A run cancelled during a sweep takes no cell out of the owed set
+    and writes no cell outside R.
+  - Order state in a scoped run, in each caller. With A1 `=WEEKNUM(45292,22)` and B1 `=WEEKNUM(45292,2)` both in
+    R, both hold 1, as a full recalculation gives, not the `#NUM!` that forward order from a fresh state gives
+    A1 (the reproducer of CR-321724568's round 2). With the setter B1 outside R, A1 finds a fresh state and
+    holds `#NUM!`. With a reader in R that reads a formula cell of R the chain has not reached, the reader is
+    moved behind it and both hold the twin's values.
+  - The history: with A1 `=IF(C1,B1,D1)`, B1 `=A1`, C1 FALSE and D1 1 settled, A1 is rewritten as
+    `=IF(C1,B1,D1)+1`, then C1 is set to TRUE, then `calculate`. Incremental on and the reference agree on A1
+    and B1, both having made the entry evaluation (the reproducer of CR-321724568's review, where a reference
+    with no entry evaluation gives 0 against 2).
+  - `calculate_sheet`: with a formula on one sheet reading a formula on another whose input changed, the other
+    sheet's cell keeps its stored value and stays owed, in both sheet orders, after a full pass that was not
+    flat, and on the system clock; a run cut by the ceiling or cancelled leaves what was owed owed and
+    evaluates nothing off its sheet; a volatile cell of the sheet draws, and its readers on another sheet are
+    owed; incremental on and off hold the same stored values after it and after the `calculate` that follows.
+  - A load: in OnDemand mode a workbook loaded with `recalc` false (the probe request's `m10-manual-stale.xlsx`,
+    whose cached B1 is 999) reports B1 stale, and a `compute` of it gives 2; a load whose recalculation was
+    cancelled owes everything.
+  - A watch's life: a watch registered over an owed range is paid by the next edit, an edit of an unrelated
+    literal included; so is one that was stale at a switch into OnDemand, one left stale by a cancelled pay, and
+    one on the sheet of an owed spill anchor.
+  - A transaction with a structural edit owes everything.
   - Automatic is unchanged: `Workbook::edit_paths` and `last_recalc_outcome` after every edit of the suites equal
     main's, an empty transaction runs a full pass, and a save after `set_iteration` succeeds.
   - The recoveries: a `calculate` after a pass that shared its work out and a raised ceiling computes the cells;
     a cancelled `compute` leaves every cell stale and the next `calculate` recovers.
   - Mutations that must fail them: an owed cell dropped after a cone pass; a watched range not paid; a formula
-    written while cells are owed not added; an entry evaluation taking its cells out of the owed set, or
-    evaluating a formula cell it did not write; a non-cell op while cells are owed not owing everything;
-    `set_calc_mode(Automatic)` not paying; `is_stale` false for an owed cell; nothing owed and `can_restrict`
-    false not running a full pass; the owed cells passed to `evaluate_cells` unsorted.
+    written while cells are owed not added; a scoped run taking a cell out of the owed set, evaluating a formula
+    cell outside its set, writing the work bound, or leaving unowed a formula cell it changed; one that keeps a
+    cycle's stored values with iteration on, or runs an order-state reader in forward order; an entry
+    evaluation skipped when `can_restrict` is false, when there is no index, when incremental recalculation is
+    off or when everything is owed; `calculate_sheet` followed by a pass over another sheet; a load without
+    recalculation leaving nothing owed; a watch's pending state decided by the cells an edit added alone; a
+    non-cell op while cells are owed not owing everything; `set_calc_mode(Automatic)` not paying; `is_stale`
+    false for an owed cell; nothing owed and `can_restrict` false not running a full pass; the owed cells
+    passed to `evaluate_cells` unsorted.
   - An xlsx with `calcMode="manual"` or `autoNoTable` round-trips the attribute, in the regenerating and the
     source-preserving export.
   - A bench: 1,000 writes and one read on the 1M-formula chain, OnDemand against Automatic.
-- **Steps**, each S or M, in order: (a) the owed set, Manual with its entry evaluation, `calculate`,
-  `calculate_sheet`, `calc_pending`, `is_stale`, `stored`, the file's mode; (b) OnDemand's first slice, `compute`, `watch`, `NotCalculated`; (c)
-  cones, after Design 13's traversal; (d) the Python and wasm bindings, by their lanes, the wasm one after
-  T-5288.
+- **Steps**, each S or M, in order: (a) the owed set, Manual with the scoped run (the entry evaluation and
+  `calculate_sheet`), `calculate`, `calc_pending`, `is_stale`, `stored`, the file's mode; (b) OnDemand's first
+  slice, `compute`, `watch`, `NotCalculated`; (c) cones, after Design 13's traversal; (d) the Python and wasm
+  bindings, by their lanes, the wasm one after T-5288; (e) `calculate_sheet` over the sheet's owed cells alone,
+  and what it releases, as an amendment that carries their argument.

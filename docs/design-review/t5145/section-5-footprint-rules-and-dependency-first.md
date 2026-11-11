@@ -5,6 +5,22 @@ into SPEC-0002 as Designs 12 and 13. Design 13 is poc-s-e2-1-cc's reviewed draft
 
 ## In short
 
+- **Changed at 16:25Z on 2026-11-11, before review.** An independent reviewer read this section first and found
+  eight blocking points (six on the dependency-first pass, two on the footprint rules), reasoned from the code.
+  The engine lane, which owns the evaluator, accepted all six on the pass and wrote the corrections; I fixed the
+  two on the rules. What it changes:
+  - The new pass order has a **stated cost and a test that counts its steps** (as first written it was quadratic
+    for a running total).
+  - A lookup through one of the new per-pass indexes happens **only when it is provably safe**; every other read
+    stays exactly as today, including today's caching, so no workbook gets slower or runs into the work limit
+    because of it.
+  - The indexes get a **fixed memory room** (about 100 MB at most).
+  - The pass is the same whether or not the engine's dependency index is available, and unchanged when iterative
+    calculation is on.
+  - A footprint rule applies only when the formula's text alone gives the area (not through CHOOSE or a computed
+    range).
+
+
 - **Design 12, footprint rules.** SUMIF and AVERAGEIF read a resized sum range; LOOKUP reads on past a short result
   vector. Each joins the index with a rule that names those cells. The rules are T-5143's first change, which was
   withdrawn when its review found two holes. This design adds the two preconditions that close them: LOOKUP's
@@ -61,15 +77,23 @@ adds the two preconditions that close the holes. T-5143 is implemented after Des
     index files every written area of a formula it models: with `=SUMIF(A1:A3,">0",B1:B10)` the index files B1:B3
     and B1:B10, so `dependents` of B7 finds the formula.
   - **LOOKUP**'s vector form reads a short result range on past its end, down for a column and to the right for a
-    row or one cell, as far as the lookup vector is long. The rule files the result range extended that far. A
+    row or one cell, as far as the lookup vector is long. A two-dimensional lookup vector is searched along its
+    first row when it is wider than tall and along its first column otherwise (`lookup.rs`), so its length is
+    the larger of its rows and its columns. The rule files the result range extended that far. A
     two-dimensional result vector is `#N/A` and reads nothing more.
-  - A resized or read-on argument must be a written reference or range. One computed by a function has no rule,
-    and its formula stays always dirty.
+  - A rule is a function of the formula's text and place. So both the argument that gives the shape (SUMIF's
+    and AVERAGEIF's range, LOOKUP's lookup vector) and the one resized or read on must be written references or
+    ranges. With `=SUMIF(CHOOSE(D1,A1:A3,A1:A9),">0",B1)` the rectangle is B1:B3 or B1:B9 by D1's value, and
+    `=LOOKUP(2,1/(A1:A100<>""),B1)` has a computed lookup vector: such a formula has no rule and stays always
+    dirty. So does one whose rectangle, after the clip to the grid, reaches the last row or the last column,
+    as a written range that does (`instantiate`).
   - **COUNTIF, COUNTIFS, SUMIFS and AVERAGEIFS** read exactly their ranges and criteria, and need no footprint
     rule; the strict shape of the *IFS functions makes a mismatched range `#VALUE!`. MINIFS and MAXIFS join with
     a test of their own, as any function does (Design 1).
-  - **A criterion that holds a range** (`COUNTIF(A1:A9,A1:A3)`, `">"&B1:B2`) lifts the call, which charges by the
-    positions its walk visits, and those follow the used area: its formula stays always dirty.
+  - **A criterion whose static result may be an array** (the static analysis 11.1 uses for a formula's result:
+    `COUNTIF(A1:A9,A1:A3)`, `">"&B1:B2`, `CHOOSE(D1,B1,B1:B3)`) can lift the call, which then charges by the
+    positions its walk visits, and those follow the used area: its formula stays always dirty. Whether a call
+    lifts is a fact of its values (`if_ifs.rs`), so the rule asks what the text allows.
   - **D-functions** evaluate a criterion formula at each record's row. They stay always dirty.
 - **The two preconditions** (review of CR-321578012, round 1; Taskei P559979639).
   1. **A search is a head.** LOOKUP searches through the search cache, as VLOOKUP and MATCH do, so every range of
@@ -95,7 +119,8 @@ adds the two preconditions that close the holes. T-5143 is implemented after Des
   when the rectangle the rule gives after the edit is not the old one moved by `RefMap::line` with as many lines.
 - **Maintenance.** A refile applies the rule as the build does.
 - **`precedents` and `dependents`** (Design 10) answer the written relation: the rule's rectangle is not a
-  precedent, and Design 10's check drops it.
+  precedent. It is the formula's rule area: a formula that only its rule area ties to a cell is listed in that
+  cell's `unresolved`, with the index and by the scan alike.
 - **What the implementation may rely on.**
   1. The footprints above are the implementations' (`resize_to`; LOOKUP's read-on), each with a test against it.
   2. Design 11.1's flag keeps these functions out of restricted passes until this lands, so main is safe at every
@@ -108,14 +133,19 @@ adds the two preconditions that close the holes. T-5143 is implemented after Des
     its columns' stored cells, and its empty-rectangle budget.
   - The used-area oracle (`work_that_follows_the_used_area_is_always_in_the_closure`) over the conditional
     aggregates' shapes and LOOKUP's, at the last used rows and columns it sweeps.
-  - Mutations: a rule's rectangle not filed; LOOKUP's head left out; a criteria walk the hook does not record.
+  - The rule is the text's: the CHOOSE and computed-vector formulas above stay always dirty, and so does a
+    criterion that CHOOSE can make an array; a 2-by-4 and a 4-by-2 lookup vector file a result range extended
+    by 4.
+  - Mutations: a rule's rectangle not filed; LOOKUP's head left out; a criteria walk the hook does not record;
+    a rule applied to a shape-giving argument that is computed.
 
 **13. The dependency-first full pass, and per-pass indexes the document decides** (amendment to Design 4 and to
 SPEC-0028 section 11, 2026-11-11). The design is poc-s-e2-1-cc's draft of 2026-11-10, folded in at their request. It
 was reviewed before any code by poc-s-s1-cc for SPEC-0028 (5 changes) and by poc-engine-cc for the evaluator (6
-changes), all applied. It answers Taskei P559418140, which decision 0422 (T-5154's change) names as the owner of
+changes), all applied. It answers Taskei P559418140, which decision 0422 (T-5154) names as the owner of
 declined passes, and Taskei P559664607. Taskei P560151028 (a refused build is tried again only when what refused it
-changes) is beside it and not part of it.
+changes) is beside it and not part of it. Before its change went to review it was read independently
+(2026-11-11): six blocking points, each ruled by poc-engine-cc and folded in below.
 
 - **The two problems.**
   1. *Totals above their data.* With `C1 = SUM(B1:B10000)` over `B r = A r*2`, the pass loop reaches C1 in row 1,
@@ -131,31 +161,46 @@ changes) is beside it and not part of it.
      2.9 times the pass allowance, and a SUMIFS per row is 2 times it.
 
   Both have one cause: the order of the pass, not the document, decides when a range's formulas are evaluated.
-- **The pass.** In a full pass that is not in Excel's order (SPEC-0017), before the loop evaluates a root R, an
-  anchor or a cell, it evaluates the formula cells of R's static footprint that are not evaluated yet, depth first,
-  from its own loop, with an explicit stack:
-  1. Push R. While the stack holds a cell T, take the first formula cell of T's footprint, in placement order,
-     that is not evaluated, is not on the stack and is a candidate. If there is one, push it. Otherwise pop T and
-     evaluate it at depth 0 (`evaluate_root_cell`).
+- **The pass.** In a full pass that is not in Excel's order (SPEC-0017), with iterative calculation off, before
+  the loop evaluates a root R, an anchor or a cell, it evaluates the formula cells of R's static footprint that
+  are not evaluated yet, depth first, from its own loop, with an explicit stack:
+  1. Push R. While the stack holds a cell T, take the next formula cell of T's footprint, in placement order from
+     T's cursor, that is a candidate and is not evaluated. If it is on the stack, that is a static cycle (step
+     3). Otherwise push it. When T's footprint has no such cell left, pop T and evaluate it at depth 0
+     (`evaluate_root_cell`). A frame's cursor only moves forward: a cell evaluated while T waited is passed,
+     not taken again.
   2. A formula cell is a **candidate** when the read index's walk gives its footprint (`read_index/walk.rs`, the
-     one definition) and it is no dynamic anchor and no spill cell. A formula the walk does not model (Design
-     11.1's list) is no candidate, and neither is a formula reached only through one. If it is read, it nests on
-     demand, as today. One kind of unmodelled formula is a candidate all the same: a **leaf**, a formula with
-     no reference, no range and no name anywhere in its tree (`=TODAY()`, `=NOW()`, `=RAND()`, and `=ROW()` or
-     `=COLUMN()` with no argument). It reads no cell, so running it first cannot read ahead or nest
-     (ruled by the draft's authors when it was folded in). An always-dirty formula whose footprint is unknown or
-     dynamic (INDIRECT, OFFSET, a whole column) stays a non-candidate.
-  3. A cell already on the stack is a static cycle. On finding one, R falls back: it is evaluated as today, in
-     row-major order, with nothing of its footprint evaluated first, and the cycle is left to today's detection.
-     A cycle's values can depend on where it is entered, and this pass must not move that.
+     one definition) and it is no dynamic anchor and no spill cell. Candidacy is a property of the cell, not of
+     the path that reached it. A formula the walk does not model (Design 11.1's list) is no candidate. If it is
+     read, it nests on demand, as today. One kind of unmodelled formula is a candidate all the same: a **leaf**,
+     a formula whose every function is on a listed set that reads no cell: TODAY, NOW, RAND and RANDBETWEEN, ROW
+     and COLUMN with no argument, and the allowlist's functions over constants. It reads no cell, so running it
+     first cannot read ahead or nest (ruled by the draft's authors when it was folded in).
+     `=SUM(INDIRECT("A1"))` is no leaf: its tree holds no reference, but INDIRECT reads a cell. An always-dirty
+     formula whose footprint is unknown or dynamic (INDIRECT, OFFSET, a whole column) stays a non-candidate.
+  3. A cell already on the stack is a static cycle. On finding one, R falls back: the traversal from R stops,
+     the cells it already evaluated stay evaluated, and R and the rest of its footprint are evaluated as today,
+     on demand in row-major order, with the cycle left to today's detection. A cycle's values can depend on
+     where it is entered, and this pass must not move that. A cycle through a non-candidate is not a static
+     cycle. With `A1: =C5+B5`, `B5: =C5+1`, `C5: =N(B5)` (N is off the allowlist), this pass enters the cycle at
+     B5 where today's enters at C5. With iteration off the values are the same: the whole stack is marked, and
+     every later reader (`circular.rs`).
+
+  Candidacy is the walk's, computed in every full pass whether or not the workbook has an index. With no index
+  (incremental recalculation off, a build the cap refused) the pass is still dependency-first, so draws and
+  thrown-away work do not depend on an optimization's availability. With iterative calculation on, the pass is
+  today's, in natural order.
 
   Finding a rectangle's formula cells uses a per-sheet list of formula positions by column, sorted by row: built
-  once per pass, O(F log F), searched in O(log F + hits). It is measured on the 60,000-formula book before the
-  code lands; above 2 ms to build, it is kept between passes and rebuilt only when the layout changes. The
-  traversal is unmetered work in SPEC-0028 section 11's terms: once per pass, so `T_pass` (the position lists
-  are `T_setup` if they are kept between passes). It is bounded by the formulas, their footprints and the
-  stack's F cells (directive 5). Design 9's cones and Design 10's `precedents` use the same
-  lists and the same traversal.
+  once per pass, O(F log F). Each column of the list also keeps the next candidate not yet evaluated at or after
+  a row (a union-find with path compression, or a successor set), so an evaluated cell is passed once, not once
+  per probe, and a wide rectangle visits the list's columns that meet it, not every column of the grid. The
+  traversal costs O(F·α(F) + R·log F), for F candidates and R rectangles walked; each rectangle's lookup is
+  charged to the pass, so it is `T_pass` in SPEC-0028 section 11's terms (the position lists are `T_setup` if
+  they are kept between passes). The lists are measured on the 60,000-formula book before the code lands; above
+  2 ms to build, they are kept between passes and rebuilt only when the layout changes. The traversal is
+  bounded by the formulas, their footprints and the stack's F cells (directive 5). Design 9's cones and Design
+  10's `precedents` use the same lists and the same traversal.
 - **What it guarantees.**
   - Every candidate is evaluated with its static inputs evaluated. For a document whose formulas are all
     candidates with acyclic footprints the full pass is flat: a total above its data no longer nests, and neither
@@ -169,10 +214,12 @@ changes) is beside it and not part of it.
     and under the collaborative profile a draw is a function of the seed and the cell (I-07).
   - Anchors still run first, in `anchor_order`. Excel's order is untouched.
   - The depth-limit unwinds of a chain read from the top go away: its thrown-away work becomes 0. The tests that
-    pin today's figures change to the new ones and keep their checks.
+    pin today's figures change to the new ones and keep their checks. A document that reaches share mode today
+    through that thrown-away work alone stays in normal mode, so its formulas compute where share mode gave
+    `#VALUE!`; SPEC-0028 section 3 ("Where it is not") says so.
 - **The restricted pass follows the same order** (added when the draft was folded in: a flat full pass is not
   enough, since Design 4's restricted pass runs its roots in (sheet, row, column) order and calls a clean cell
-  placed after its root "ahead"; to be confirmed by the draft's authors). With `C1 = SUM(B1:B10000)` and an edit
+  placed after its root "ahead"; confirmed by the draft's author). With `C1 = SUM(B1:B10000)` and an edit
   of A5, the closure is B5 and C1. In natural order C1 runs first, starts B5 inside itself and reads B2 onward
   ahead, so the pass would be rejected at every edit, whatever the full pass did. So:
   1. A restricted pass runs its roots through the traversal above, kept to dirty cells: before a dirty root
@@ -188,27 +235,35 @@ changes) is beside it and not part of it.
   3. `Incremental::last_full_flat` keeps its meaning, and a static cycle met in a restricted pass rejects it, as
      nesting does today.
 - **The indexes** (SPEC-0028 section 11 rule 1).
-  1. *Use decided by the document.* A range whose formula cells are all candidates has them evaluated before any
-     reader of the range runs, so `read_is_inert` holds for it by construction. Such a range is read through the
-     index whenever the index has room for it. A range that holds a non-candidate, a dynamic reference or a
-     cycle's member is not: its reads charge their walk.
-  2. *Room per range, from the document.* `MAX_KEPT_STATES` and `MAX_CACHED_CELLS` go. A running total keeps one
-     state per stored cell of its start's prefix; a criteria index keeps one bit set per distinct criterion of a
-     range, and its read values once. Each state held is charged when built, against the pass's ceiling, outside
-     any formula's run, so the indexes hold at most the allowance's worth of states. The build walks the ranges
-     in (sheet, top, left, bottom, right) order; a range whose index would pass the ceiling, and every range
-     after it, gets none and charges its walk. So two replicas of one document cut at the same range.
-  3. *A read through an index charges a constant.* Any other read charges its walk, a cached one included:
-     Design 4's "the same on a hit and a miss".
+  1. *Use decided by the document.* A read uses an index only when all three hold: the pass is not in Excel's
+     order; the reading root has a footprint whose traversal completed without fallback; and the range's formula
+     cells are all candidates. All three are functions of the document. The range's formula cells were then
+     evaluated before the reader ran. This rule only adds the index path. A range that holds a non-candidate (a
+     spill cell, or a formula off the allowlist such as a `=MONTH(A2)` helper column), a dynamic reference or a
+     cycle's member is read and cached as today, once its cells are evaluated (`read_is_inert`), and its reads
+     are not charged a walk each. Until Design 12 makes the conditional aggregates candidates, a root that
+     calls one has no footprint, so none of its reads uses an index.
+  2. *A fixed room.* The indexes' room is a constant of the pass and does not depend on what the recalculation
+     has spent. It is today's `MAX_KEPT_STATES`, 4,000,000 states of 24 bytes (`SumParts`), so at most 96 MB, and
+     today's `MAX_CACHED_BITS`, 32,000,000 bits, 4 MB, for the criteria sets. A running total keeps one state per
+     stored cell of its start's prefix. A build that would pass the room is not made, and its reads fall back to
+     today's paths. Which builds fit is a function of the document, because the order of the pass is. A
+     criteria set is built when its criterion is first met, as today (`ifs_cache.rs`), and is charged to the
+     formula whose run builds it; the order in which criteria are met is the dependency-first order. The
+     `MAX_CACHED_CELLS` of `range_values.rs` goes with the index, which replaces what it caches; the one of
+     `search_cache.rs` stays, with the lookups (T-5192).
+  3. *A read through an index charges a constant.* A read that is not through an index is today's read, with
+     today's charges, and it sets 11.1's flag as today: a full pass that made one still declines restricted
+     passes.
   4. *The dense walk goes for walks that charge.* A charged walk visits stored cells only. The used area does not
      become an input of every range reader, which would dirty every range reader at every last-row move.
   5. *Canonical storage first* (Taskei P559664573): which reads use an index depends on the stored cells, which
      are not yet the same on every replica.
-- **What this gives the index.** The conditional aggregates and the running totals stop charging by the order of
-  the pass. A full pass that ran a conditional aggregate need no longer decline restricted passes (11.1's table,
-  the IFS cache's row; the running totals charge alike already), and T-5143 has its second precondition. The
-  search cache's row stays: restricted passes for a workbook that searches are T-5192, which gets its premise
-  from this pass.
+- **What this gives the index.** The conditional aggregates and the running totals that read through an index
+  stop charging by the order of the pass. A full pass whose conditional aggregates all read through indexes need
+  no longer decline restricted passes (11.1's table, the IFS cache's row; the running totals charge alike
+  already), and T-5143 has its second precondition. The search cache's row stays: restricted passes for a
+  workbook that searches are T-5192, which gets its premise from this pass.
 - **What it must show.**
 
   | Test | What it checks |
@@ -218,12 +273,16 @@ changes) is beside it and not part of it.
   | Flat documents unchanged | where no footprint reaches ahead, the order and the values are unchanged bit for bit on the metamorphic flat histories |
   | Metamorphic | a totals-above-data generator: incremental = full = fresh over 10,000 sequences |
   | Depth and stack sweeps | T-5152's sweeps at depth 1 and stack 0, with their new figures |
-  | RAND | under the seeded draw, the same values in either order |
-  | Cycles | a 2-cycle, a 3-cycle, a cycle with a reader above and below it, a cycle through a SUM range, each entered from every member: today's values |
-  | The ceiling's edge | documents whose ranges cross the indexes' ceiling: replicas and both entry orders give the same values and spend the same units |
+  | RAND | under the seeded draw (T-5288), the same values in either order |
+  | Cycles | a 2-cycle, a 3-cycle, a cycle with a reader above and below it, a cycle through a SUM range, each entered from every member: today's values. A cycle entered through a non-candidate (the N example above), iteration off: the same values. Iteration on: today's order, so today's values |
+  | No index | with incremental recalculation off, and with a build the cap refused, the pass is the same: the order, the values, the thrown-away work and, under the seeded draw, the draws |
+  | The traversal's cost | `=SUM($B$1:Br)` for r = 1 to 100,000 over a formula column: the probe count is linear in r, asserted by a counter of the test build, not by time |
+  | The room's edge | documents whose ranges cross the indexes' room: replicas and both entry orders give the same values and spend the same units |
+  | Today's cache kept | a SUMIFS column over a spilled column, and one over a column of formulas off the allowlist, at 100,000 rows: normal mode, and a spend no higher than today's |
+  | The eval suites | `make eval` changes no cell |
   | Replays | the replay tests T-5298 asks for (it is `todo`), once they exist, pass unchanged, with an OFFSET chain among them |
   | A leaf | a `TODAY()` cell placed below the formula that reads it: the full pass is flat and an unread edit is a restricted pass of the leaf and its reader; the same with `=SUM(INDIRECT("A1"))` in its place still declines |
   | The restricted pass | the total-on-top edit is kept, not rejected; a dirty root that reads a clean cell outside its footprint and after it is still rejected; the metamorphic totals-above-data generator counts restricted passes kept |
-  | The index bound | each state is charged at its build and stays within its byte bound |
+  | The index bound | the indexes hold at most 96 MB of states and 4 MB of criteria bits, whatever the document |
 - **Order and effort** (its authors' estimate): about 2 engineer-weeks. It goes after T-5132, whose list is its
-  candidates' rule.
+  candidates' rule. Its RAND test needs T-5288's seeded draw.
