@@ -1,0 +1,92 @@
+{
+  "kind": "collab-sheet static preview",
+  "build": "eed8fccde-mw8tse3o",
+  "builtAt": "2026-11-09T05:33:31.183Z",
+  "totalBytes": 15090083,
+  "files": [
+    {
+      "name": "index.html",
+      "bytes": 611
+    },
+    {
+      "name": "assets/carlito-latin-400-italic-BiMes9J5.woff2",
+      "bytes": 30476
+    },
+    {
+      "name": "assets/carlito-latin-400-normal-R-CeALMm.woff2",
+      "bytes": 30156
+    },
+    {
+      "name": "assets/carlito-latin-700-italic-Ckstd88m.woff2",
+      "bytes": 31108
+    },
+    {
+      "name": "assets/carlito-latin-700-normal-DQ6DOkPk.woff2",
+      "bytes": 31464
+    },
+    {
+      "name": "assets/carlito-latin-ext-400-normal-DPZWia0-.woff2",
+      "bytes": 80796
+    },
+    {
+      "name": "assets/carlito-latin-ext-700-normal-D2WO8ap1.woff2",
+      "bytes": 83932
+    },
+    {
+      "name": "assets/color-DTNhYjx9.css",
+      "bytes": 15317
+    },
+    {
+      "name": "assets/color-Dz4uBs4g.js",
+      "bytes": 211987
+    },
+    {
+      "name": "assets/design-2XC0j2Kh.css",
+      "bytes": 55276
+    },
+    {
+      "name": "assets/design-B4lP0pVk.js",
+      "bytes": 19055
+    },
+    {
+      "name": "assets/index-CQEZoGNT.js",
+      "bytes": 522630
+    },
+    {
+      "name": "assets/index-DC5mGfEq.css",
+      "bytes": 63797
+    },
+    {
+      "name": "assets/rustsheet_charts_wasm-DTQZajfw.js",
+      "bytes": 7463
+    },
+    {
+      "name": "assets/rustsheet_charts_wasm_bg-Dd-eWQ0J.wasm",
+      "bytes": 1595886
+    },
+    {
+      "name": "assets/rustsheet_wasm_bg-CalBX129.wasm",
+      "bytes": 10699698
+    },
+    {
+      "name": "assets/sheet_ops_bg-1XRd1BDB.wasm",
+      "bytes": 1586807
+    },
+    {
+      "name": "assets/synthetic-worker-BYUbp_Kr.js",
+      "bytes": 3359
+    },
+    {
+      "name": "assets/worker-CHlchK-h.js",
+      "bytes": 14286
+    },
+    {
+      "name": "licenses/Carlito-OFL.txt",
+      "bytes": 4700
+    },
+    {
+      "name": "licenses/fluentui-system-icons-MIT.txt",
+      "bytes": 1279
+    }
+  ]
+}

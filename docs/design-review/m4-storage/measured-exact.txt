@@ -1,0 +1,13 @@
+size_of: Cell=80 (i32,Cell)=88 FormulaValue=56 SpillValue=16 String=24
+EXACT N10: typed=143212752 after_eval=143212756 reloaded=90414495 cells=1000000
+N10                                cells= 1000000 stored= 143.2 B/cell after-eval= 143.2 peak-eval= 155.8 reloaded=  90.4 bitcode=  9.2 B/cell eval=59.376908ms
+EXACT N1: typed=376050352 after_eval=376050356 reloaded=112051959 cells=1000000
+N1                                 cells= 1000000 stored= 376.1 B/cell after-eval= 376.1 peak-eval= 388.6 reloaded= 112.1 bitcode=  9.0 B/cell eval=55.717383ms
+EXACT T10: typed=259584600 after_eval=259584604 reloaded=205620519 cells=1000000
+T10                                cells= 1000000 stored= 259.6 B/cell after-eval= 259.6 peak-eval= 272.2 reloaded= 205.6 bitcode= 16.3 B/cell eval=144.06399ms
+EXACT R10: typed=143222256 after_eval=143222260 reloaded=90423327 cells=1000000
+R10                                cells= 1000000 stored= 143.2 B/cell after-eval= 143.2 peak-eval= 155.8 reloaded=  90.4 bitcode=  2.2 B/cell eval=144.346059ms
+EXACT E10 (#N/A results): typed=143213300 after_eval=175439152 reloaded=102015026 cells=1000000
+E10 (#N/A results)                 cells= 1000000 stored= 143.2 B/cell after-eval= 175.4 peak-eval= 189.9 reloaded= 102.0 bitcode= 15.3 B/cell eval=768.439059ms
+EXACT V10 (VLOOKUP misses): typed=143213914 after_eval=183540634 reloaded=110115597 cells=1000000
+V10 (VLOOKUP misses)               cells= 1000000 stored= 143.2 B/cell after-eval= 183.5 peak-eval= 196.1 reloaded= 110.1 bitcode= 23.4 B/cell eval=1.028108068s

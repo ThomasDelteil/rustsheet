@@ -1,0 +1,100 @@
+{
+  "kind": "collab-sheet static preview",
+  "build": "9c82fa21d-mw8xyg83",
+  "builtAt": "2026-11-09T07:30:12.681Z",
+  "totalBytes": 15810996,
+  "files": [
+    {
+      "name": "index.html",
+      "bytes": 611
+    },
+    {
+      "name": "assets/carlito-latin-400-italic-BiMes9J5.woff2",
+      "bytes": 30476
+    },
+    {
+      "name": "assets/carlito-latin-400-normal-R-CeALMm.woff2",
+      "bytes": 30156
+    },
+    {
+      "name": "assets/carlito-latin-700-italic-Ckstd88m.woff2",
+      "bytes": 31108
+    },
+    {
+      "name": "assets/carlito-latin-700-normal-DQ6DOkPk.woff2",
+      "bytes": 31464
+    },
+    {
+      "name": "assets/carlito-latin-ext-400-normal-DPZWia0-.woff2",
+      "bytes": 80796
+    },
+    {
+      "name": "assets/carlito-latin-ext-700-normal-D2WO8ap1.woff2",
+      "bytes": 83932
+    },
+    {
+      "name": "assets/color-D7rgzuo3.css",
+      "bytes": 15759
+    },
+    {
+      "name": "assets/color-DyGXuOJp.js",
+      "bytes": 184794
+    },
+    {
+      "name": "assets/design-BgNnkYBp.js",
+      "bytes": 19813
+    },
+    {
+      "name": "assets/design-Du7ppM1z.css",
+      "bytes": 60684
+    },
+    {
+      "name": "assets/index-C6bnFNL1.js",
+      "bytes": 632802
+    },
+    {
+      "name": "assets/index-DUEZ3ubq.css",
+      "bytes": 68668
+    },
+    {
+      "name": "assets/rustsheet_charts_wasm-0ulcQ7w5.js",
+      "bytes": 11674
+    },
+    {
+      "name": "assets/rustsheet_charts_wasm_bg-D4jXl7hR.wasm",
+      "bytes": 1914994
+    },
+    {
+      "name": "assets/rustsheet_wasm_bg-CyNxag8R.wasm",
+      "bytes": 10945576
+    },
+    {
+      "name": "assets/sheet_ops_bg-1XRd1BDB.wasm",
+      "bytes": 1586807
+    },
+    {
+      "name": "assets/synthetic-worker-BhNl5Uk4.js",
+      "bytes": 3967
+    },
+    {
+      "name": "assets/worker-CB_Qt4k9.js",
+      "bytes": 18113
+    },
+    {
+      "name": "licenses/Carlito-OFL.txt",
+      "bytes": 4700
+    },
+    {
+      "name": "licenses/lucide-ISC.txt",
+      "bytes": 2004
+    },
+    {
+      "name": "icons/icons.svg",
+      "bytes": 29611
+    },
+    {
+      "name": "icons/manifest.json",
+      "bytes": 22487
+    }
+  ]
+}

@@ -1,0 +1,1027 @@
+{
+  "lucide": "0.563.0",
+  "icons": [
+    {
+      "name": "accounting",
+      "source": "lucide",
+      "lucide": "dollar-sign",
+      "modified": "",
+      "licence": "ISC (Lucide)"
+    },
+    {
+      "name": "agent",
+      "source": "lucide",
+      "lucide": "sparkles",
+      "modified": "",
+      "licence": "ISC (Lucide)"
+    },
+    {
+      "name": "align-bottom",
+      "source": "original",
+      "lucide": "",
+      "modified": "",
+      "licence": "Quick (own drawing)"
+    },
+    {
+      "name": "align-center",
+      "source": "lucide",
+      "lucide": "text-align-center",
+      "modified": "",
+      "licence": "ISC (Lucide)"
+    },
+    {
+      "name": "align-left",
+      "source": "lucide",
+      "lucide": "text-align-start",
+      "modified": "",
+      "licence": "ISC (Lucide)"
+    },
+    {
+      "name": "align-middle",
+      "source": "original",
+      "lucide": "",
+      "modified": "",
+      "licence": "Quick (own drawing)"
+    },
+    {
+      "name": "align-right",
+      "source": "lucide",
+      "lucide": "text-align-end",
+      "modified": "",
+      "licence": "ISC (Lucide)"
+    },
+    {
+      "name": "align-top",
+      "source": "original",
+      "lucide": "",
+      "modified": "",
+      "licence": "Quick (own drawing)"
+    },
+    {
+      "name": "app-mark",
+      "source": "lucide",
+      "lucide": "sheet",
+      "modified": "",
+      "licence": "ISC (Lucide)"
+    },
+    {
+      "name": "autofit-height",
+      "source": "lucide",
+      "lucide": "move-vertical",
+      "modified": "",
+      "licence": "ISC (Lucide)"
+    },
+    {
+      "name": "autofit-width",
+      "source": "lucide",
+      "lucide": "move-horizontal",
+      "modified": "",
+      "licence": "ISC (Lucide)"
+    },
+    {
+      "name": "autosum",
+      "source": "lucide",
+      "lucide": "sigma",
+      "modified": "",
+      "licence": "ISC (Lucide)"
+    },
+    {
+      "name": "bold",
+      "source": "lucide",
+      "lucide": "bold",
+      "modified": "",
+      "licence": "ISC (Lucide)"
+    },
+    {
+      "name": "border-all",
+      "source": "original",
+      "lucide": "",
+      "modified": "",
+      "licence": "Quick (own drawing)"
+    },
+    {
+      "name": "border-bottom",
+      "source": "original",
+      "lucide": "",
+      "modified": "",
+      "licence": "Quick (own drawing)"
+    },
+    {
+      "name": "border-bottom-double",
+      "source": "original",
+      "lucide": "",
+      "modified": "",
+      "licence": "Quick (own drawing)"
+    },
+    {
+      "name": "border-bottom-thick",
+      "source": "original",
+      "lucide": "",
+      "modified": "",
+      "licence": "Quick (own drawing)"
+    },
+    {
+      "name": "border-inside",
+      "source": "original",
+      "lucide": "",
+      "modified": "",
+      "licence": "Quick (own drawing)"
+    },
+    {
+      "name": "border-inside-h",
+      "source": "original",
+      "lucide": "",
+      "modified": "",
+      "licence": "Quick (own drawing)"
+    },
+    {
+      "name": "border-inside-v",
+      "source": "original",
+      "lucide": "",
+      "modified": "",
+      "licence": "Quick (own drawing)"
+    },
+    {
+      "name": "border-left",
+      "source": "original",
+      "lucide": "",
+      "modified": "",
+      "licence": "Quick (own drawing)"
+    },
+    {
+      "name": "border-none",
+      "source": "original",
+      "lucide": "",
+      "modified": "",
+      "licence": "Quick (own drawing)"
+    },
+    {
+      "name": "border-outside",
+      "source": "original",
+      "lucide": "",
+      "modified": "",
+      "licence": "Quick (own drawing)"
+    },
+    {
+      "name": "border-outside-thick",
+      "source": "original",
+      "lucide": "",
+      "modified": "",
+      "licence": "Quick (own drawing)"
+    },
+    {
+      "name": "border-right",
+      "source": "original",
+      "lucide": "",
+      "modified": "",
+      "licence": "Quick (own drawing)"
+    },
+    {
+      "name": "border-top",
+      "source": "original",
+      "lucide": "",
+      "modified": "",
+      "licence": "Quick (own drawing)"
+    },
+    {
+      "name": "border-top-bottom",
+      "source": "original",
+      "lucide": "",
+      "modified": "",
+      "licence": "Quick (own drawing)"
+    },
+    {
+      "name": "border-top-bottom-double",
+      "source": "original",
+      "lucide": "",
+      "modified": "",
+      "licence": "Quick (own drawing)"
+    },
+    {
+      "name": "border-top-bottom-thick",
+      "source": "original",
+      "lucide": "",
+      "modified": "",
+      "licence": "Quick (own drawing)"
+    },
+    {
+      "name": "calculator",
+      "source": "lucide",
+      "lucide": "calculator",
+      "modified": "",
+      "licence": "ISC (Lucide)"
+    },
+    {
+      "name": "cell-styles",
+      "source": "lucide",
+      "lucide": "swatch-book",
+      "modified": "",
+      "licence": "ISC (Lucide)"
+    },
+    {
+      "name": "cf-color-scales",
+      "source": "original",
+      "lucide": "",
+      "modified": "",
+      "licence": "Quick (own drawing)"
+    },
+    {
+      "name": "cf-data-bars",
+      "source": "original",
+      "lucide": "",
+      "modified": "",
+      "licence": "Quick (own drawing)"
+    },
+    {
+      "name": "cf-highlight",
+      "source": "original",
+      "lucide": "",
+      "modified": "",
+      "licence": "Quick (own drawing)"
+    },
+    {
+      "name": "cf-icon-sets",
+      "source": "original",
+      "lucide": "",
+      "modified": "",
+      "licence": "Quick (own drawing)"
+    },
+    {
+      "name": "cf-top-bottom",
+      "source": "original",
+      "lucide": "",
+      "modified": "",
+      "licence": "Quick (own drawing)"
+    },
+    {
+      "name": "chart-area",
+      "source": "lucide",
+      "lucide": "chart-area",
+      "modified": "",
+      "licence": "ISC (Lucide)"
+    },
+    {
+      "name": "chart-bar",
+      "source": "lucide",
+      "lucide": "chart-bar",
+      "modified": "",
+      "licence": "ISC (Lucide)"
+    },
+    {
+      "name": "chart-column",
+      "source": "lucide",
+      "lucide": "chart-column",
+      "modified": "",
+      "licence": "ISC (Lucide)"
+    },
+    {
+      "name": "chart-combo",
+      "source": "lucide",
+      "lucide": "chart-column",
+      "modified": "shorter columns and a line over them",
+      "licence": "ISC (Lucide), modified"
+    },
+    {
+      "name": "chart-line",
+      "source": "lucide",
+      "lucide": "chart-line",
+      "modified": "",
+      "licence": "ISC (Lucide)"
+    },
+    {
+      "name": "chart-pie",
+      "source": "lucide",
+      "lucide": "chart-pie",
+      "modified": "",
+      "licence": "ISC (Lucide)"
+    },
+    {
+      "name": "chart-scatter",
+      "source": "lucide",
+      "lucide": "chart-scatter",
+      "modified": "",
+      "licence": "ISC (Lucide)"
+    },
+    {
+      "name": "check",
+      "source": "lucide",
+      "lucide": "check",
+      "modified": "",
+      "licence": "ISC (Lucide)"
+    },
+    {
+      "name": "chevron-down",
+      "source": "lucide",
+      "lucide": "chevron-down",
+      "modified": "",
+      "licence": "ISC (Lucide)"
+    },
+    {
+      "name": "chevron-left",
+      "source": "lucide",
+      "lucide": "chevron-left",
+      "modified": "",
+      "licence": "ISC (Lucide)"
+    },
+    {
+      "name": "chevron-right",
+      "source": "lucide",
+      "lucide": "chevron-right",
+      "modified": "",
+      "licence": "ISC (Lucide)"
+    },
+    {
+      "name": "chevron-up",
+      "source": "lucide",
+      "lucide": "chevron-up",
+      "modified": "",
+      "licence": "ISC (Lucide)"
+    },
+    {
+      "name": "clear",
+      "source": "lucide",
+      "lucide": "eraser",
+      "modified": "",
+      "licence": "ISC (Lucide)"
+    },
+    {
+      "name": "clear-formats",
+      "source": "lucide",
+      "lucide": "remove-formatting",
+      "modified": "",
+      "licence": "ISC (Lucide)"
+    },
+    {
+      "name": "close",
+      "source": "lucide",
+      "lucide": "x",
+      "modified": "",
+      "licence": "ISC (Lucide)"
+    },
+    {
+      "name": "comma-style",
+      "source": "original",
+      "lucide": "",
+      "modified": "",
+      "licence": "Quick (own drawing)"
+    },
+    {
+      "name": "comment",
+      "source": "lucide",
+      "lucide": "message-square",
+      "modified": "",
+      "licence": "ISC (Lucide)"
+    },
+    {
+      "name": "comment-delete",
+      "source": "lucide",
+      "lucide": "message-square-x",
+      "modified": "",
+      "licence": "ISC (Lucide)"
+    },
+    {
+      "name": "comment-new",
+      "source": "lucide",
+      "lucide": "message-square-plus",
+      "modified": "",
+      "licence": "ISC (Lucide)"
+    },
+    {
+      "name": "comment-next",
+      "source": "lucide",
+      "lucide": "message-square",
+      "modified": "a right chevron inside",
+      "licence": "ISC (Lucide), modified"
+    },
+    {
+      "name": "comment-previous",
+      "source": "lucide",
+      "lucide": "message-square",
+      "modified": "a left chevron inside",
+      "licence": "ISC (Lucide), modified"
+    },
+    {
+      "name": "comments",
+      "source": "lucide",
+      "lucide": "messages-square",
+      "modified": "",
+      "licence": "ISC (Lucide)"
+    },
+    {
+      "name": "conditional-format",
+      "source": "original",
+      "lucide": "",
+      "modified": "",
+      "licence": "Quick (own drawing)"
+    },
+    {
+      "name": "copy",
+      "source": "lucide",
+      "lucide": "copy",
+      "modified": "",
+      "licence": "ISC (Lucide)"
+    },
+    {
+      "name": "cut",
+      "source": "lucide",
+      "lucide": "scissors",
+      "modified": "",
+      "licence": "ISC (Lucide)"
+    },
+    {
+      "name": "decimal-decrease",
+      "source": "lucide",
+      "lucide": "decimals-arrow-left",
+      "modified": "",
+      "licence": "ISC (Lucide)"
+    },
+    {
+      "name": "decimal-increase",
+      "source": "lucide",
+      "lucide": "decimals-arrow-right",
+      "modified": "",
+      "licence": "ISC (Lucide)"
+    },
+    {
+      "name": "delete",
+      "source": "lucide",
+      "lucide": "trash-2",
+      "modified": "",
+      "licence": "ISC (Lucide)"
+    },
+    {
+      "name": "delete-cells",
+      "source": "lucide",
+      "lucide": "grid-2x2-x",
+      "modified": "",
+      "licence": "ISC (Lucide)"
+    },
+    {
+      "name": "delete-columns",
+      "source": "lucide",
+      "lucide": "between-vertical-start",
+      "modified": "the caret replaced by a cross",
+      "licence": "ISC (Lucide), modified"
+    },
+    {
+      "name": "delete-rows",
+      "source": "lucide",
+      "lucide": "between-horizontal-start",
+      "modified": "the caret replaced by a cross",
+      "licence": "ISC (Lucide), modified"
+    },
+    {
+      "name": "download",
+      "source": "lucide",
+      "lucide": "download",
+      "modified": "",
+      "licence": "ISC (Lucide)"
+    },
+    {
+      "name": "edit",
+      "source": "lucide",
+      "lucide": "pencil-line",
+      "modified": "",
+      "licence": "ISC (Lucide)"
+    },
+    {
+      "name": "edit-ranges",
+      "source": "lucide",
+      "lucide": "lock-keyhole-open",
+      "modified": "",
+      "licence": "ISC (Lucide)"
+    },
+    {
+      "name": "external-link",
+      "source": "lucide",
+      "lucide": "external-link",
+      "modified": "",
+      "licence": "ISC (Lucide)"
+    },
+    {
+      "name": "fill-color",
+      "source": "lucide",
+      "lucide": "paint-bucket",
+      "modified": "scaled into 2..16, leaving room for the colour bar",
+      "licence": "ISC (Lucide), modified"
+    },
+    {
+      "name": "fill-down",
+      "source": "lucide",
+      "lucide": "arrow-down-to-line",
+      "modified": "",
+      "licence": "ISC (Lucide)"
+    },
+    {
+      "name": "fill-left",
+      "source": "lucide",
+      "lucide": "arrow-left-to-line",
+      "modified": "",
+      "licence": "ISC (Lucide)"
+    },
+    {
+      "name": "fill-options",
+      "source": "original",
+      "lucide": "",
+      "modified": "",
+      "licence": "Quick (own drawing)"
+    },
+    {
+      "name": "fill-right",
+      "source": "lucide",
+      "lucide": "arrow-right-to-line",
+      "modified": "",
+      "licence": "ISC (Lucide)"
+    },
+    {
+      "name": "fill-up",
+      "source": "lucide",
+      "lucide": "arrow-up-to-line",
+      "modified": "",
+      "licence": "ISC (Lucide)"
+    },
+    {
+      "name": "filter",
+      "source": "lucide",
+      "lucide": "funnel",
+      "modified": "",
+      "licence": "ISC (Lucide)"
+    },
+    {
+      "name": "filter-clear",
+      "source": "lucide",
+      "lucide": "funnel-x",
+      "modified": "",
+      "licence": "ISC (Lucide)"
+    },
+    {
+      "name": "filter-reapply",
+      "source": "lucide",
+      "lucide": "refresh-cw",
+      "modified": "",
+      "licence": "ISC (Lucide)"
+    },
+    {
+      "name": "find",
+      "source": "lucide",
+      "lucide": "search",
+      "modified": "",
+      "licence": "ISC (Lucide)"
+    },
+    {
+      "name": "fn-date",
+      "source": "lucide",
+      "lucide": "calendar-clock",
+      "modified": "",
+      "licence": "ISC (Lucide)"
+    },
+    {
+      "name": "fn-financial",
+      "source": "lucide",
+      "lucide": "banknote",
+      "modified": "",
+      "licence": "ISC (Lucide)"
+    },
+    {
+      "name": "fn-logical",
+      "source": "lucide",
+      "lucide": "split",
+      "modified": "",
+      "licence": "ISC (Lucide)"
+    },
+    {
+      "name": "fn-lookup",
+      "source": "lucide",
+      "lucide": "text-search",
+      "modified": "",
+      "licence": "ISC (Lucide)"
+    },
+    {
+      "name": "fn-math",
+      "source": "lucide",
+      "lucide": "pi",
+      "modified": "",
+      "licence": "ISC (Lucide)"
+    },
+    {
+      "name": "fn-more",
+      "source": "lucide",
+      "lucide": "ellipsis",
+      "modified": "",
+      "licence": "ISC (Lucide)"
+    },
+    {
+      "name": "fn-text",
+      "source": "lucide",
+      "lucide": "case-sensitive",
+      "modified": "",
+      "licence": "ISC (Lucide)"
+    },
+    {
+      "name": "font",
+      "source": "lucide",
+      "lucide": "type",
+      "modified": "",
+      "licence": "ISC (Lucide)"
+    },
+    {
+      "name": "font-color",
+      "source": "lucide",
+      "lucide": "baseline",
+      "modified": "baseline removed, for the colour bar",
+      "licence": "ISC (Lucide), modified"
+    },
+    {
+      "name": "font-grow",
+      "source": "lucide",
+      "lucide": "a-arrow-up",
+      "modified": "",
+      "licence": "ISC (Lucide)"
+    },
+    {
+      "name": "font-shrink",
+      "source": "lucide",
+      "lucide": "a-arrow-down",
+      "modified": "",
+      "licence": "ISC (Lucide)"
+    },
+    {
+      "name": "format-cells",
+      "source": "lucide",
+      "lucide": "table-properties",
+      "modified": "",
+      "licence": "ISC (Lucide)"
+    },
+    {
+      "name": "format-painter",
+      "source": "lucide",
+      "lucide": "paintbrush",
+      "modified": "",
+      "licence": "ISC (Lucide)"
+    },
+    {
+      "name": "freeze-first-column",
+      "source": "original",
+      "lucide": "",
+      "modified": "",
+      "licence": "Quick (own drawing)"
+    },
+    {
+      "name": "freeze-panes",
+      "source": "original",
+      "lucide": "",
+      "modified": "",
+      "licence": "Quick (own drawing)"
+    },
+    {
+      "name": "freeze-top-row",
+      "source": "original",
+      "lucide": "",
+      "modified": "",
+      "licence": "Quick (own drawing)"
+    },
+    {
+      "name": "go-to",
+      "source": "lucide",
+      "lucide": "locate",
+      "modified": "",
+      "licence": "ISC (Lucide)"
+    },
+    {
+      "name": "gridlines",
+      "source": "lucide",
+      "lucide": "grid-3x3",
+      "modified": "",
+      "licence": "ISC (Lucide)"
+    },
+    {
+      "name": "help",
+      "source": "lucide",
+      "lucide": "circle-question-mark",
+      "modified": "",
+      "licence": "ISC (Lucide)"
+    },
+    {
+      "name": "hide",
+      "source": "lucide",
+      "lucide": "eye-off",
+      "modified": "",
+      "licence": "ISC (Lucide)"
+    },
+    {
+      "name": "indent-decrease",
+      "source": "lucide",
+      "lucide": "list-indent-decrease",
+      "modified": "",
+      "licence": "ISC (Lucide)"
+    },
+    {
+      "name": "indent-increase",
+      "source": "lucide",
+      "lucide": "list-indent-increase",
+      "modified": "",
+      "licence": "ISC (Lucide)"
+    },
+    {
+      "name": "info",
+      "source": "lucide",
+      "lucide": "info",
+      "modified": "",
+      "licence": "ISC (Lucide)"
+    },
+    {
+      "name": "insert-cells",
+      "source": "lucide",
+      "lucide": "grid-2x2-plus",
+      "modified": "",
+      "licence": "ISC (Lucide)"
+    },
+    {
+      "name": "insert-columns",
+      "source": "lucide",
+      "lucide": "between-vertical-start",
+      "modified": "",
+      "licence": "ISC (Lucide)"
+    },
+    {
+      "name": "insert-function",
+      "source": "lucide",
+      "lucide": "square-function",
+      "modified": "",
+      "licence": "ISC (Lucide)"
+    },
+    {
+      "name": "insert-rows",
+      "source": "lucide",
+      "lucide": "between-horizontal-start",
+      "modified": "",
+      "licence": "ISC (Lucide)"
+    },
+    {
+      "name": "insert-sheet",
+      "source": "lucide",
+      "lucide": "file-plus",
+      "modified": "",
+      "licence": "ISC (Lucide)"
+    },
+    {
+      "name": "italic",
+      "source": "lucide",
+      "lucide": "italic",
+      "modified": "",
+      "licence": "ISC (Lucide)"
+    },
+    {
+      "name": "launcher",
+      "source": "lucide",
+      "lucide": "square-arrow-out-down-right",
+      "modified": "",
+      "licence": "ISC (Lucide)"
+    },
+    {
+      "name": "link",
+      "source": "lucide",
+      "lucide": "link",
+      "modified": "",
+      "licence": "ISC (Lucide)"
+    },
+    {
+      "name": "lock",
+      "source": "lucide",
+      "lucide": "lock",
+      "modified": "",
+      "licence": "ISC (Lucide)"
+    },
+    {
+      "name": "maximize",
+      "source": "lucide",
+      "lucide": "maximize-2",
+      "modified": "",
+      "licence": "ISC (Lucide)"
+    },
+    {
+      "name": "merge",
+      "source": "lucide",
+      "lucide": "table-cells-merge",
+      "modified": "",
+      "licence": "ISC (Lucide)"
+    },
+    {
+      "name": "number-format",
+      "source": "lucide",
+      "lucide": "hash",
+      "modified": "",
+      "licence": "ISC (Lucide)"
+    },
+    {
+      "name": "open",
+      "source": "lucide",
+      "lucide": "folder-open",
+      "modified": "",
+      "licence": "ISC (Lucide)"
+    },
+    {
+      "name": "palette",
+      "source": "lucide",
+      "lucide": "palette",
+      "modified": "",
+      "licence": "ISC (Lucide)"
+    },
+    {
+      "name": "paste",
+      "source": "lucide",
+      "lucide": "clipboard-paste",
+      "modified": "",
+      "licence": "ISC (Lucide)"
+    },
+    {
+      "name": "people",
+      "source": "lucide",
+      "lucide": "users",
+      "modified": "",
+      "licence": "ISC (Lucide)"
+    },
+    {
+      "name": "percent",
+      "source": "lucide",
+      "lucide": "percent",
+      "modified": "",
+      "licence": "ISC (Lucide)"
+    },
+    {
+      "name": "plus",
+      "source": "lucide",
+      "lucide": "plus",
+      "modified": "",
+      "licence": "ISC (Lucide)"
+    },
+    {
+      "name": "protect-sheet",
+      "source": "lucide",
+      "lucide": "shield",
+      "modified": "",
+      "licence": "ISC (Lucide)"
+    },
+    {
+      "name": "protect-workbook",
+      "source": "lucide",
+      "lucide": "file-lock",
+      "modified": "",
+      "licence": "ISC (Lucide)"
+    },
+    {
+      "name": "redo",
+      "source": "lucide",
+      "lucide": "redo-2",
+      "modified": "",
+      "licence": "ISC (Lucide)"
+    },
+    {
+      "name": "rename",
+      "source": "lucide",
+      "lucide": "pencil",
+      "modified": "",
+      "licence": "ISC (Lucide)"
+    },
+    {
+      "name": "reopen",
+      "source": "lucide",
+      "lucide": "rotate-ccw",
+      "modified": "",
+      "licence": "ISC (Lucide)"
+    },
+    {
+      "name": "replace",
+      "source": "lucide",
+      "lucide": "replace",
+      "modified": "",
+      "licence": "ISC (Lucide)"
+    },
+    {
+      "name": "reply",
+      "source": "lucide",
+      "lucide": "reply",
+      "modified": "",
+      "licence": "ISC (Lucide)"
+    },
+    {
+      "name": "send",
+      "source": "lucide",
+      "lucide": "send",
+      "modified": "",
+      "licence": "ISC (Lucide)"
+    },
+    {
+      "name": "show",
+      "source": "lucide",
+      "lucide": "eye",
+      "modified": "",
+      "licence": "ISC (Lucide)"
+    },
+    {
+      "name": "side-panel",
+      "source": "lucide",
+      "lucide": "panel-right",
+      "modified": "",
+      "licence": "ISC (Lucide)"
+    },
+    {
+      "name": "sort",
+      "source": "lucide",
+      "lucide": "arrow-down-wide-narrow",
+      "modified": "",
+      "licence": "ISC (Lucide)"
+    },
+    {
+      "name": "sort-ascending",
+      "source": "lucide",
+      "lucide": "arrow-down-a-z",
+      "modified": "",
+      "licence": "ISC (Lucide)"
+    },
+    {
+      "name": "sort-descending",
+      "source": "lucide",
+      "lucide": "arrow-down-z-a",
+      "modified": "",
+      "licence": "ISC (Lucide)"
+    },
+    {
+      "name": "sort-order",
+      "source": "lucide",
+      "lucide": "arrow-up-down",
+      "modified": "",
+      "licence": "ISC (Lucide)"
+    },
+    {
+      "name": "strikethrough",
+      "source": "lucide",
+      "lucide": "strikethrough",
+      "modified": "",
+      "licence": "ISC (Lucide)"
+    },
+    {
+      "name": "theme-dark",
+      "source": "lucide",
+      "lucide": "moon",
+      "modified": "",
+      "licence": "ISC (Lucide)"
+    },
+    {
+      "name": "theme-light",
+      "source": "lucide",
+      "lucide": "sun",
+      "modified": "",
+      "licence": "ISC (Lucide)"
+    },
+    {
+      "name": "underline",
+      "source": "lucide",
+      "lucide": "underline",
+      "modified": "",
+      "licence": "ISC (Lucide)"
+    },
+    {
+      "name": "undo",
+      "source": "lucide",
+      "lucide": "undo-2",
+      "modified": "",
+      "licence": "ISC (Lucide)"
+    },
+    {
+      "name": "unfreeze",
+      "source": "original",
+      "lucide": "",
+      "modified": "",
+      "licence": "Quick (own drawing)"
+    },
+    {
+      "name": "unlock",
+      "source": "lucide",
+      "lucide": "lock-open",
+      "modified": "",
+      "licence": "ISC (Lucide)"
+    },
+    {
+      "name": "warning",
+      "source": "lucide",
+      "lucide": "triangle-alert",
+      "modified": "",
+      "licence": "ISC (Lucide)"
+    },
+    {
+      "name": "wrap-text",
+      "source": "lucide",
+      "lucide": "text-wrap",
+      "modified": "",
+      "licence": "ISC (Lucide)"
+    },
+    {
+      "name": "zoom-in",
+      "source": "lucide",
+      "lucide": "zoom-in",
+      "modified": "",
+      "licence": "ISC (Lucide)"
+    }
+  ]
+}
