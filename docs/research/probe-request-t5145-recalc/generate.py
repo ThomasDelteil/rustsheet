@@ -66,6 +66,7 @@ def write(path: Path, calc_pr: str) -> None:
             # A fixed timestamp, so that two runs write the same bytes and the request can name a sha256.
             info = zipfile.ZipInfo(name, date_time=(1980, 1, 1, 0, 0, 0))
             info.compress_type = zipfile.ZIP_DEFLATED
+            info.create_system = 3  # zipfile writes 0 on Windows: keep the bytes the same on every platform
             z.writestr(info, text)
     print(hashlib.sha256(path.read_bytes()).hexdigest(), path.name)
 

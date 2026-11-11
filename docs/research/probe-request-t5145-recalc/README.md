@@ -30,8 +30,9 @@ mode, edit, read, calculate, read) or about an API that returns ranges, so they 
 - A run on Excel 365 desktop, en-US, is welcome as a second set, labelled as such. It is evidence only from a
   listed oracle operator who signs it, the bar decision 0427 sets for a desktop observation; relayed without that,
   it is a hint and its rules stay UNVERIFIED.
-- M1, M6 and M11 could also be recorded through Graph, which reads values and calculates in a session, from an
-  uploaded `calcMode="manual"` file (its `workbookApplication` has no call that sets the mode), as
+- M1 to M4, M6 and M12 could also be recorded through Graph, which writes values and formulas, inserts a range,
+  reads values and calculates in a session, from an uploaded `calcMode="manual"` file (its `workbookApplication`
+  has no call that sets the mode, so M11, which switches it, could not), as
   `docs/research/chart-selection-probe/record_graph.py` recorded that probe. No such recorder is written here. Graph
   has no call for precedents, so the P cases stay Office.js.
 - M5, M7 and P16 were dropped while the request was written; ids are not reused.
@@ -51,9 +52,11 @@ mode, edit, read, calculate, read) or about an API that returns ranges, so they 
 | M9 | as M1 after A1 = 5, no F9; save; unzip | What cached value does B1 hold in the file, and what does `calcPr` say (`calcMode`, `calcOnSave`, `fullCalcOnLoad`)? Repeat with "Recalculate workbook before saving" off | Microsoft documents that a save in Manual mode recalculates first while "Recalculate workbook before saving" is on, which choosing Manual selects (research note, S3 and 3). Ours gives the same file by another route: a save cannot calculate (it takes `&self`), so it is refused while a cell is owed and the caller calculates first. Please also report the `calcId` the saved file carries |
 | M10 | three runs, each in a new Excel session with no other workbook open: (a) open `m10-manual-stale.xlsx`; (b) open `m10-auto-stale.xlsx`; (c) open the manual one, then the auto one. Both hold B1 `=A1+1` cached 999 and C1 `=B1*10` cached 9990. In each run, for each file, before any edit: read B1, C1 and the calculation mode; F9, read; Ctrl+Alt+F9, read. A fourth run, (d), opens `m10-manual-fullcalc.xlsx` alone, the manual file with `fullCalcOnLoad="1"` | What do B1 and C1 show on open? After F9? After Ctrl+Alt+F9? Which mode is Excel in in (a), (b) and (c)? In (d), does Manual win over `fullCalcOnLoad`, as ECMA-376 says (research note, 7)? | the cached values show until a recalculation, in (a), (c) and (d); in (b) Microsoft documents that only formulas that depend on changed cells are recalculated on open (research note, 3), so 999 shows there too |
 | M11 | as M1 after A1 = 5; switch to Automatic | Is B1 6 at once? | yes |
-| M12 | as M1 after A1 = 5, B3 `=A3+ROW()`; insert a row above row 2 | Is B1 calculated (6)? Is the moved B4 14, with ROW() 4? | the insert triggers a recalculation, in Manual mode too: B1 is 6 and B4 is 14 at once. S1 and S3 both list the insert of a row among the actions that trigger one, without the words "in automatic mode" that other items of the same lists carry |
+| M12 | as M1 after A1 = 5, B3 `=A3+ROW()`; insert a row above row 2 | Is B1 calculated (6)? Is the moved B4 14, with ROW() 4? | a structural edit owes everything; nothing is calculated until F9. Microsoft's pages pull both ways here. S1 and S3 both list the insert of a row among the actions that trigger a recalculation, without the words "in automatic mode" that other items of the same lists carry. But S1 says of its list "When calculation is set to automatic, recalculation occurs after every data input and after certain events such as the examples given in the previous section", S3 says "Manual calculation mode means that Excel recalculates all open workbooks only when you request it by pressing F9 or Ctrl+Alt+F9, or when you save a workbook", and the two lists disagree on which items carry the words ("Renaming a worksheet" has none in S1; S3 has "Renaming worksheets or changing worksheet position when in automatic mode"). We take the two sentences over the missing words; this case asks Excel which |
 | M13 | B1 `=A1+1`; Manual; copy B1's formula to B2 (A2 = 100) | Is B2 101, 2 (the source's value) or 0? | calculated at the paste, as an entered formula is (research note, S3, which does not name a paste) |
 | M14 | S!A1 = 1, S!B1 `=A1+1`, T!A1 `=S!B1*10`, T!B1 `=A1+1`; Manual; S!A1 = 5; Calculate Sheet (Shift+F9) on T | Is T!A1 20 (S!B1's stale value) or 60? Is T!B1 calculated from it? Is S!B1 still 2? After F9, are all four right? | the sheet's dirty cells run from stored values elsewhere, and stay dirty while a precedent is (Microsoft documents that Shift+F9 "resets all previously uncalculated (dirty) cells as calculated", research note, S3: the F9 after it tests which) |
+| M15 | as M1 after A1 = 5; add a defined name `n` = `=S!$A$1*2`; read | Is B1 calculated (6) when a name is added? ("Adding, changing, or deleting defined names" is on S3's list with no "in automatic mode") | nothing is calculated until F9, for M12's reason |
+| M16 | as M1 after A1 = 5; hide row 3; read | Is B1 calculated (6) when a row is hidden? ("Filtering, hiding, or un-hiding rows" is on S3's list likewise) | nothing is calculated until F9, for M12's reason |
 | V1 | Automatic; F1 `=RAND()`; edit A9, which nothing reads | Does F1 change? | yes (S1 says so; this is the control) |
 
 `generate.py` writes the three M10 workbooks (`python3 -I generate.py <dir>`), the same bytes at every run, and prints
@@ -93,7 +96,7 @@ P7 is P7a and P7b, P11 the spill rows, P11a to P11g):
 | P20 | H13 | `=@A1:A5` (H13 is off rows 1 to 5, so `#VALUE!`) | `A1:A5`? | yes |
 | P20b | V3 | `=@A1:A5` on a row of the range | The range `A1:A5`, or the intersected cell `A3`? | `A1:A5` |
 | P21 | H14 | `=LET(x,A1,x+B1)` | A1 and B1? | yes |
-| P17 | H15 | `=1+2` | `ItemNotFound`? | an empty result |
+| P17 | H15 | `=1+2` | `ItemNotFound`? | an empty result, where Office.js throws ItemNotFound (S2): the same fact in our API's shape |
 | P14 | H17 | `=H1+1` | `getPrecedents`: H1, then A1 and B1? | yes: every level |
 | P18 | H18 | `=SUM((A1:A2,B4:B5))` | Two areas? | yes |
 | P19 | H19 | `=SUM(A1:B3 B2:C5)` | Both operands, or the intersection `B2:B3`? | both operands |

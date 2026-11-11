@@ -166,6 +166,34 @@ const M = {
     const afterF9 = { S: await read(context, s, "A1:B1"), T: await read(context, t, "A1:B1") };
     return { afterSheet, afterF9 };
   },
+  // M15: a defined name added in Manual mode (S3 lists "Adding, changing, or deleting defined names" with no
+  // "when in automatic mode").
+  M15: async (context, s) => {
+    s.name = "S";
+    s.getRange("A1").values = [[1]];
+    s.getRange("B1").formulas = [["=A1+1"]];
+    await context.sync();
+    await setMode(context, Excel.CalculationMode.manual);
+    s.getRange("A1").values = [[5]]; // B1 dirty
+    await context.sync();
+    context.workbook.names.add("n", "=S!$A$1*2");
+    await context.sync();
+    const afterName = await read(context, s, "A1:B1"); // B1 2 or 6?
+    return { afterName };
+  },
+  // M16: a row hidden in Manual mode (S3 lists "Filtering, hiding, or un-hiding rows" likewise).
+  M16: async (context, s) => {
+    s.getRange("A1").values = [[1]];
+    s.getRange("B1").formulas = [["=A1+1"]];
+    await context.sync();
+    await setMode(context, Excel.CalculationMode.manual);
+    s.getRange("A1").values = [[5]]; // B1 dirty
+    await context.sync();
+    s.getRange("3:3").rowHidden = true;
+    await context.sync();
+    const afterHide = await read(context, s, "A1:B1"); // B1 2 or 6?
+    return { afterHide };
+  },
   // V1 (Automatic): a volatile cell and an edit nothing reads.
   V1: async (context, s) => {
     s.getRange("F1").formulas = [["=RAND()"]];
@@ -203,12 +231,14 @@ async function buildP(context) {
   t.getRange("A1").values = [[7]];
   u.getRange("A1").values = [[8]];
   await group("sheets and inputs");
-  wb.names.add("rng", "=S!$C$1:$C$3");
-  wb.names.add("calc", "=SUM(S!$C$1:$C$3)*2");
-  wb.names.add("konst", "=42");
-  wb.names.add("MyFn", "=LAMBDA(x,x*S!$C$1)");
+  // One sync per name, as for the formulas: a name the host refuses is named, and the others are still added.
+  const names = { rng: "=S!$C$1:$C$3", calc: "=SUM(S!$C$1:$C$3)*2", konst: "=42", MyFn: "=LAMBDA(x,x*S!$C$1)" };
+  for (const [name, formula] of Object.entries(names)) {
+    wb.names.add(name, formula);
+    await group(`name ${name}`);
+  }
   s.getRange("P1:R3").values = [[1, 2, 3], [4, 5, 6], [7, 8, 9]];
-  await group("names");
+  await group("inputs P1:R3");
   const f = {
     H1: "=A1+B1", //                 P1  two cells
     H2: "=SUM(A1:A5)", //            P2  a range
@@ -332,4 +362,4 @@ async function run(id) {
     }
   });
 }
-// run("M1") ... run("M14"), run("V1"), run("PREC"), run("DEP"): one fresh workbook each.
+// run("M1") ... run("M16"), run("V1"), run("PREC"), run("DEP"): one fresh workbook each.
