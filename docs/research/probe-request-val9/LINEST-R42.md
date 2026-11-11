@@ -10,10 +10,10 @@ Five cases, at their suite paths under this directory. Copy `eval/` over a check
 | Case | Checked cells | What it is |
 |---|---:|---|
 | `eval/suites/probes/cases/t2574-zero-head-fresh.case.json` | 61 | The aimed probe: 55 least-squares formulas on sheet P (column B) whose QR meets a pivot head of exactly 0, plus the Precision canary |
-| `eval/accuracy/tables/LINEST/r4-T-2574.case.json` | 200 | The R4.2 sweep: a fresh full-domain batch from the standard generator (`rustsheet-accuracy generate LINEST --batch r4-T-2574`) |
-| `eval/accuracy/tables/TREND/r4-T-2574.case.json` | 200 | the same for TREND |
-| `eval/accuracy/tables/LOGEST/r4-T-2574.case.json` | 200 | the same for LOGEST |
-| `eval/accuracy/tables/GROWTH/r4-T-2574.case.json` | 200 | the same for GROWTH |
+| `docs/research/probe-request-val9/t2574-accuracy/LINEST/r4-T-2574.case.json` | 200 | The R4.2 sweep: a fresh full-domain batch from the standard generator (`rustsheet-accuracy generate LINEST --batch r4-T-2574`) |
+| `docs/research/probe-request-val9/t2574-accuracy/TREND/r4-T-2574.case.json` | 200 | the same for TREND |
+| `docs/research/probe-request-val9/t2574-accuracy/LOGEST/r4-T-2574.case.json` | 200 | the same for LOGEST |
+| `docs/research/probe-request-val9/t2574-accuracy/GROWTH/r4-T-2574.case.json` | 200 | the same for GROWTH |
 
 The four batches carry their math sidecars (`r4-T-2574.math.json`); the fill adds `r4-T-2574.oracle.json` beside each.
 
@@ -23,6 +23,8 @@ From `tools/`:
 
 ```bash
 uv run rustsheet-oracle fill -b excel-graph --suite probes --case probes/t2574-zero-head-fresh.case.json
+# first copy the four batches into eval/accuracy/tables (see README item 1; do not commit them):
+for f in LINEST TREND LOGEST GROWTH; do cp ../docs/research/probe-request-val9/t2574-accuracy/$f/r4-T-2574.* ../eval/accuracy/tables/$f/; done
 uv run rustsheet-oracle fill -b excel-graph --suite accuracy
 ```
 
