@@ -21,14 +21,15 @@
   already closed by decision 0421. Excel documents two used ranges, one with formatting and one with values only;
   both are in Graph, so a probe is cheap.
 
-## Open questions for the project lead
+## Open question for the project lead
 
-1. A stored blank's style moves out of the cell table, which changes the engine's saved byte form once more
-   (M4's storage change does too). (yes/no; mine: yes, and the two land as one format step if their timing allows.)
-2. `Workbook::used_range` keeps counting formatted blanks, as Excel's used range is documented to; a values-only
+1. `Workbook::used_range` keeps counting formatted blanks, as Excel's used range is documented to; a values-only
    extent for hosts is a later, separate change. (yes/no; mine: yes.)
 
-## Questions for the owning lanes
+(An earlier question, whether the saved byte form should change once together with M4's storage change, is
+withdrawn: the M4 lane says nothing persists those bytes and they carry no version, so the two need no shared step.)
+
+## Questions for the owning lanes (all four have answered; their points are in the text)
 
 - **Engine** (T-5190; the stored-cell walk's charge, Taskei P559664616): is "no evaluation path can tell a stored
   blank from an absent cell" true of every reader you know? I found three readers of the layer beside styles and
