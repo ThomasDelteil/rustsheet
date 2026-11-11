@@ -18,7 +18,7 @@ into SPEC-0002 as Design 9. Rules marked (probe Mn) are provisional until the pr
   true only when a settled workbook's values are a function of the document, which needs loops evaluated as on a
   fresh open, seeded draws and a fixed clock. The wasm engine has none of the three yet (T-5288), so it refuses
   the two modes until it does.
-- **Corrected twice on 2026-11-11 (about 12:05Z and 12:45Z), after the two review rounds of the first change
+- **Corrected twice on 2026-11-11 (about 12:05Z and 12:33Z), after the two review rounds of the first change
   (CR-321684914).** The reviewer found a Microsoft page my research had missed ("Excel performance: Improving
   calculation performance"). It states what I had called undocumented:
   - a formula written in Manual mode **is evaluated at once**, from the stored values of the cells it reads, and
