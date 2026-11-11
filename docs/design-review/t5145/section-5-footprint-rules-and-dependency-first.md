@@ -5,6 +5,11 @@ into SPEC-0002 as Designs 12 and 13. Design 13 is poc-s-e2-1-cc's reviewed draft
 
 ## In short
 
+- **Text refreshed at 22:40Z on 2026-11-11**, as it will go to review when section 4 is on main. Two sentences
+  are new since the last copy: Design 12 says what an index kept across an insert or delete of rows does with a
+  rule's rectangle; Design 13 says how long a list of candidate formulas kept between recalculations lives (it
+  is dropped whenever the set of candidates can have changed).
+
 - **Changed at 16:25Z on 2026-11-11, before review.** An independent reviewer read this section first and found
   eight blocking points (six on the dependency-first pass, two on the footprint rules), reasoned from the code.
   The engine lane, which owns the evaluator, accepted all six on the pass and wrote the corrections; I fixed the
@@ -117,6 +122,8 @@ adds the two preconditions that close the holes. T-5143 is implemented after Des
 - **Structural edits.** A rule's rectangle is derived from two written ranges, so the rewrite does not predict it.
   A formula with a footprint rule is in D0 when either written range is changed by Design 8's classification, or
   when the rectangle the rule gives after the edit is not the old one moved by `RefMap::line` with as many lines.
+  So a shifted index (Design 8, "Re-keying") files such a formula again with the rest of D0, and keeps by the
+  shift only a rule's rectangle that the edit moved whole, as it requires of every entry it keeps.
 - **Maintenance.** A refile applies the rule as the build does.
 - **`precedents` and `dependents`** (Design 10) answer the written relation: the rule's rectangle is not a
   precedent. It is the formula's rule area: a formula that only its rule area ties to a cell is listed in that
@@ -198,7 +205,12 @@ changes) is beside it and not part of it. Before its change went to review it wa
   traversal costs O(F·α(F) + R·log F), for F candidates and R rectangles walked; each rectangle's lookup is
   charged to the pass, so it is `T_pass` in SPEC-0028 section 11's terms (the position lists are `T_setup` if
   they are kept between passes). The lists are measured on the 60,000-formula book before the code lands; above
-  2 ms to build, they are kept between passes and rebuilt only when the layout changes. The traversal is
+  2 ms to build, they are kept between passes. A kept list holds the candidates, so it lives only while they
+  are the same cells: a formula write, a structural edit, a name or sheet op, and a pass in which a cell became
+  a dynamic anchor or stopped being one (the evaluator stores the cell's kind with its value) each drop it, and
+  the next pass builds it again. Rule 1 of the index reads below asks candidacy of such a list, so a list that
+  outlived its candidates would let a read go through an index over a cell that is no candidate any more. The
+  traversal is
   bounded by the formulas, their footprints and the stack's F cells (directive 5). Design 9's cones and Design
   10's `precedents` use the same lists and the same traversal.
 - **What it guarantees.**
@@ -286,3 +298,10 @@ changes) is beside it and not part of it. Before its change went to review it wa
   | The index bound | the indexes hold at most 96 MB of states and 4 MB of criteria bits, whatever the document |
 - **Order and effort** (its authors' estimate): about 2 engineer-weeks. It goes after T-5132, whose list is its
   candidates' rule. Its RAND test needs T-5288's seeded draw.
+
+**Default.** `Workbook::set_incremental` is on by default since decision 0422 (Rollout 8, T-5154),
+and so is the collaborative sheet's `EngineOptions.incremental`. Before it, every edit recalculated
+fully. A host on the system clock sees no change: a skip or a restricted pass needs a fixed clock
+(`Model::can_restrict`). `set_incremental(false)` still turns it off, and a red night of
+`make incremental-nightly` whose cause is not fixed that day turns the default off again
+(`docs/process/agent-workflow.md`).

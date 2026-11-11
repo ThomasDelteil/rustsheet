@@ -5,6 +5,19 @@ into SPEC-0002 as Design 11. OFFSET and INDIRECT are left to T-5420, as ruled: h
 
 ## In short
 
+- **Approved at its second review round on 2026-11-11** (CR-321840250; it merges once main's package build is
+  repaired). The first round found three things, each with a measurement on today's engine that I reran, and
+  each is fixed in the text below:
+  - A spilled array can shrink and another grow inside one recalculation, so that the sheet's last used row
+    moves away and comes back. A formula that ran in between was computed at the row in between. The rule now
+    covers a row that moved at any point, not only one that ended elsewhere.
+  - A reference across sheets (`Sheet1:Sheet327!B1:C512`) is read once per sheet, so it now counts once per
+    sheet toward the limit on ranges per formula. Counted once, a formula past the engine's budget could have
+    been skipped by an edit that changes its result.
+  - The index remembers that a workbook's always-dirty set is too large to recalculate alone. That memory is
+    now dropped when a spilled array changes size, or the workbook would stay on full recalculation after its
+    array shrank.
+
 - **Sent for review at 20:51Z on 2026-11-11** (the fourth of T-5145's five changes; the text below is the
   branch's). Changed since the 16:25Z note:
   - A full recalculation that moves a sheet's last used row records that row as unknown, so the next edit
@@ -91,9 +104,10 @@ ruling they are T-5420, a task that records the ideas. Here they are on the alwa
   always-dirty list. The rest of this design is not observable in Excel: it changes which cells are re-run, never
   a value, and its reference is a full recalculation (the Test plan). The probe request `t5145-recalc` has one
   control, V1: a RAND cell changes after an edit nothing reads.
-- **Other engines** (the same note). Every engine read has a volatile set that is recalculated at each
-  calculation (HyperFormula, LibreOffice, Formualizer, Google Sheets, Univer). None turns its dependency tracking
-  off for a workbook that holds one.
+- **Other engines** (the same note). The cited note documents volatile handling alongside dependency-based
+  recalculation in HyperFormula, LibreOffice, Formualizer, Google Sheets and Univer. Formualizer's volatile
+  list, and POI's and IronCalc's volatile handling, were not established by the sources read. We adopt an
+  always-dirty list rather than refusing the workbook's index.
 
 **11.1 The always-dirty list** (T-5132). The rule and its first implementation are poc-engine-cc's (branch
 `inc/e1/4-partial-index-e2`, read by the read-index lane). This text adds the rule on pass state, which the
@@ -149,9 +163,10 @@ conditional aggregates need now that T-5143 is not under it.
      P559664607 make the IFS cache charge by the document alone, and a workbook that searches gets none until the
      search cache does (T-5192). Each keeps the passes it has today. Its cost must not grow: with a list no closure is
      empty, so the edit path asks `restricted_pass_allowed` before it walks the list's closure, and a workbook whose
-     list's closure passes the limit remembers that until its formulas change. Two paragraphs of Design 4 are read
-     with this table from T-5132 on: "Why it then stays an upper bound" and "Why this is exact" say the conditional
-     aggregates stay off the allowlist. They do, and they now run as always-dirty formulas under the IFS row's rule.
+     list's closure passes the limit remembers that while its formulas, blocked-anchor seed set and anchor footprints
+     remain unchanged (11.3, "The closure's inputs"). Two paragraphs of Design 4 are read with this table from T-5132
+     on: "Why it then stays an upper bound" and "Why this is exact" say the conditional aggregates stay off the
+     allowlist. They do, and they now run as always-dirty formulas under the IFS row's rule.
 - **Volatile draws.** RAND, RANDBETWEEN and RANDARRAY draw anew in every pass, restricted or full, so their cells
   and readers recalculate at every edit, as Excel's volatile functions do (S1 lists RANDBETWEEN and S3 RAND;
   probe V1 asks RAND; RANDARRAY is in neither list and no case asks it, so for it the rule is ours). A bare
@@ -260,18 +275,32 @@ conditional aggregates need now that T-5143 is not under it.
     one more literal in column Z turns 16,577,500 into `#VALUE!` (measured on main). The same holds for an
     intersection with a union as an operand and for a name whose body holds a union. A union joins when its
     walk's steps are a function of its areas' own cells.
-  - **A 3-D span**: its rectangle on every sheet from the first to the last, in tab order.
+  - **A 3-D span**: its rectangle on every sheet from the first to the last, in tab order. Each sheet's
+    rectangle is one operand of the bound below.
   - A range operator between two written references on one sheet: their bounding rectangle. With any other
     operand it stays unmodelled.
 - **The walk into names is bounded** (directive 5). Depth alone does not bound it: with `n1 = n0+n0` up to `n40`
   and a cell `=n40`, a walk that enters a body at every use enters one 2^40 times, where the evaluation gives
   `#NAME?` after `MAX_DEFINED_NAME_EVALUATIONS` bodies. So each name's leaves are resolved once per build and
   kept by its key: its absolute parts as rectangles, its relative parts as nodes to place at each reader, with
-  the body's calls and whether an `@` in it picks by the reader's row (`positional`). The reference and range
-  nodes of a formula and of its names count together toward `MAX_INDEXED_RANGES`, and the bodies' nodes toward
-  `MAX_INDEXED_NODES`, which counts only the cell's own today. Kept leaves count toward T-5153's cap as they are
-  kept, at most `MAX_INDEXED_RANGES` a name (past it the name is kept as refused, in constant space); past the cap
-  the workbook has no index.
+  the body's calls and whether an `@` in it picks by the reader's row (`positional`).
+
+  Reference and range operands of a formula and its names count together toward `MAX_INDEXED_RANGES` after
+  expansion onto individual sheets: an operand spanning N sheets counts N times. A name's operands count at each
+  use of the name, by a sum kept with the name (saturating), so the count needs no second walk. This bound is
+  checked before the expanded leaves are filed; a formula that exceeds it is always dirty. The bodies' syntax
+  nodes also count toward `MAX_INDEXED_NODES`, which counts only the cell's own today. Kept leaves count toward
+  T-5153's cap as they are kept, at most `MAX_INDEXED_RANGES` a name after the same expansion (past it the name
+  is kept as refused, in constant space); past the cap the workbook has no index.
+
+  The bound is on the range walks a run can make, not on the nodes written. Design 1 keeps a formula under it
+  so that no run can spend the budget of rectangles read empty (`MAX_SEEN_RANGES`): past that, whether a range
+  is cut follows how much of the budget earlier ranges spent, which follows the used columns. One written span
+  is a walk on every sheet it holds. With sheets 1 to 327 holding one cell each, a SUM of 201 spans over them
+  and two ranges on its own sheet is 5,143 characters and 203 operands, and 65,729 walks: it is `#VALUE!`
+  ("Too many distinct ranges read"), and a literal written on Sheet1 in a column no operand holds, moving no
+  last used row, turns it into 0 (measured on main; review of CR-321840250, round 1, B2). Counted by its nodes
+  it would be indexed, and that write would skip it.
 - **Why it is exact.** A name's body is evaluated at the cell that uses it, under bounds that are functions of the
   formula and of the names (`MAX_DEFINED_NAME_DEPTH`, `MAX_DEFINED_NAME_EVALUATIONS`) and, at depth 0 where a flat
   pass runs every formula, of the stack limit, whose setter already forgets the work bound (Design 4). So the
@@ -321,6 +350,8 @@ conditional aggregates need now that T-5143 is not under it.
     span's readers left out; a head through a name not registered.
   - The exponential family above builds within the bound, timed, and a name past the depth leaves its reader
     always dirty.
+  - The 3-D fixture above: its formula is always dirty, and the write on Sheet1 recalculates it to 0. The same
+    with the spans given through a name. Mutation: a span counted once, whatever sheets it holds.
   - The red team's `rt-index-name`: an unread edit is skipped.
 
 **11.3 Spills** (T-5134). The first slice keeps a restricted pass only when no dirty anchor's footprint changes.
@@ -339,17 +370,38 @@ conditional aggregates need now that T-5143 is not under it.
     no footprint, so the record holds.
   - **The closure.** When an anchor is in the closure, the other cells of its footprint are taken as written, and
     their readers join it. The footprint's cells count toward the closure's limit as written cells do.
+  - **The closure's inputs.** With footprints in it, a closure no longer depends on the formulas only, which is
+    what lets Design 3 remember a written cell whose closure passed the limit ("a cell's closure depends on the
+    formulas only"), and 11.1 the list's. It depends on the anchors' footprints and on the blocked anchors too,
+    and a literal write can change both. So both memories hold while the formulas, the blocked-anchor seed set
+    and the anchor footprints remain unchanged. A full pass that changes a footprint or the blocked-anchor seed
+    set clears the cached closure-limit refusals before the next edit; structural edits that change these
+    closure inputs clear them too (Design 8, "Re-keying", already drops Design 3's). With 25,000 formulas and A1
+    `=SEQUENCE(Z1)`, Z1 = 10000 gives a footprint of 10,000 cells, past the quarter (6,250), and Z1 = 10 one of
+    10 (review of CR-321840250, round 1, B3): without this rule the workbook would recalculate fully at every
+    edit after its spill shrank, with no formula changed.
   - **A write over an anchor or a spill cell** is not a write of literals (`writes_only_literals` already asks for
     cells outside any spill), so the edit recalculates fully and the index is built again (Design 2).
   - **The used area inside a full pass.** A full pass lays its spills as its anchors run, so an anchor that runs
     before another anchor's spill is laid is computed with the last used row as it then was. With K1
     `=INDEX(A1:A60000*2,5)`, a one-cell anchor whose tailed read follows that row, and M2 `=SEQUENCE(Z1)` with
-    Z1 = 5000, the full pass that first lays M2's spill spends 15,159 units, and the next full pass of the same
-    document 60,078 (measured on main). The rows are recorded at the end of a pass (Design 3), so the next
-    closure would see no move and leave K1 clean, with its work in the bound as it was at the earlier row. So a
-    full pass that ends with a sheet's last used row other than the one it began with records that sheet's row
-    as unknown, and the next closure holds every head reader of that sheet. A kept restricted pass changes no
-    footprint, so it moves no row.
+    Z1 = 5000, on an otherwise empty sheet initialized with those three inputs, the first full pass spends
+    15,087 units and the next full pass of the same document spends 60,078 (measured on main). The rows are
+    recorded at the end of a pass (Design 3), so the next closure would see no move and leave K1 clean, with its
+    work in the bound as it was at the earlier row.
+
+    Comparing the row at the two ends of the pass is not enough: two anchors can move it away and back. With I1
+    `=SEQUENCE(Z1)`, K1 as above and M1 `=SEQUENCE(Z2)`, Z1 = 5000 and Z2 = 1, a write of Z1 = 1 and Z2 = 5000
+    shrinks I1's spill before K1 runs and lays M1's after it. The pass begins and ends with the last used row at
+    5000, and K1 ran at a lower one: that pass spends 165,102 units and the next full pass of the same document
+    210,084. At a pass allowance of 190,000 the first leaves K1 = 0 in normal mode and the second gives
+    `#VALUE!` in share mode, while the two dirty anchors alone cost 15,027 units, so even the summing bound
+    (180,129) would keep a restricted pass that leaves K1 clean (measured on main; review of CR-321840250,
+    round 1, B1).
+
+    So a full pass that changes a sheet's last used row at any point records that sheet's row as unknown, even
+    if its final row equals its initial row. The next closure holds every head reader of that sheet. A kept
+    restricted pass changes no footprint, so it moves no row.
 - **The pass.** Dirty anchors run first, in the order the last full pass left (`Incremental::anchor_rank`), and
   write their spill cells in place. A clean anchor's spill cells are read as stored values. This is new code in
   the driver: today a read of a spill cell goes to `evaluate_spill_cell`, never to `clean_cell_value`, and it
@@ -419,9 +471,15 @@ conditional aggregates need now that T-5143 is not under it.
     recalculation ends in share mode with `#VALUE!` and a kept restricted pass would hold 0.
   - `E1 =A1:A3*2` and `G2 =E2+B1`: a write of B1 is kept (G2 reads a clean anchor's spill cell).
   - The used area inside a pass: the K1 and M2 fixture above, then an edit no formula reads: K1 is in the
-    closure, and at K1's own limit the values equal a full recalculation's.
+    closure, and at K1's own limit the values equal a full recalculation's. And the two-anchor fixture, whose
+    pass begins and ends at one row: after it an edit no formula reads holds K1 in the closure, and at a pass
+    allowance of 190,000 units the values equal a full recalculation's (`#VALUE!` in share mode).
+  - The closure's inputs: a large spill, then a small one, then an edit no formula reads. The last edit is a
+    restricted pass, with no formula entered again; the same for a written cell whose closure had passed the
+    limit through the large footprint.
   - Mutations: the footprint test dropped, or run after the write; a sheet's row not recorded as unknown after a
-    full pass that moved it; a footprint's readers left out of the closure;
+    full pass that moved it; the row compared at the two ends of the pass only; a memory of a closure past the
+    limit kept across a full pass that changed a footprint; a footprint's readers left out of the closure;
     the blocked anchors not seeded; the put-back without the footprints; the capture without them; a restart
     recorded in a restricted pass; a clean anchor's spill cell not read as stored; the rectangle test (the
     fourth rejection) dropped.
@@ -451,13 +509,14 @@ give").
 - Of the 1,136 SpreadsheetBench workbooks with formulas (eval/catalog/usage.tsv), INDEX is in 149, MATCH in 125,
   VLOOKUP in 116, COUNTIF in 95, SUMPRODUCT in 81, TODAY in 72, ROW in 72, SUMIFS in 63, COUNTIFS in 53, SUMIF in
   47, UNIQUE in 25, INDIRECT in 11, SORT in 10, FILTER in 8, RAND in 6, OFFSET in 5, LET in 5 and NOW in 3.
-- Of the corpus census's 1,013 workbooks with formulas (docs/research/corpus-ontology-census-2026-11-09.md), 178
-  hold a dynamic array formula, 96 a whole-column or whole-row reference, 45 a Ctrl+Shift+Enter array, 37 a
-  structured reference, 30 an external reference, 23 a data table, 12 a spill reference and 4 a 3-D reference;
-  275 workbooks define a name, and 79 turn iterative calculation on.
+- In the corpus census of 2,120 input workbooks (docs/research/corpus-ontology-census-2026-11-09.md), 1,013 are
+  tagged with formulas. The per-feature totals are 178 dynamic-array, 96 whole-column or whole-row, 45
+  Ctrl+Shift+Enter-array, 37 structured-reference, 30 external-reference, 23 data-table, 12 spill-reference and
+  4 3-D-reference workbooks; 275 define a name and 79 enable iterative calculation. These are marginal feature
+  counts, not measured intersections with the formula-workbook subset.
 
 So the lookups (T-5192) and the conditional aggregates (T-5143, after Taskei P559664607) reach the most workbooks,
-then the always-dirty list for TODAY and ROW (11.1), dynamic arrays (11.3), whole-column references and names (11.2).
+then the always-dirty list for TODAY, ROW and whole-column references (11.1), dynamic arrays (11.3), and names (11.2).
 OFFSET reaches the fewest, which is the project lead's ruling on its priority.
 
 **Default.** `Workbook::set_incremental` is on by default since decision 0422 (Rollout 8, T-5154),
