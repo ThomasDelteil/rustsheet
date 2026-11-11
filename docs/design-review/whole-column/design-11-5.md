@@ -6,8 +6,9 @@ point below on main: `/out/drafts/whole-column/experiments/`).
 - **What it is for.** After 11.1 a formula with a whole-column range (`SUM(A:A)`, `VLOOKUP(x,A:C,2,0)`) is always
   dirty: it is re-run at every edit. That is far better than a full pass, but it is not what the workbook needs:
   the formula can change only when its columns are written or the sheet grows or shrinks. The corpus census counts
-  a whole-column or whole-row reference in 96 of 1,013 workbooks with formulas
-  (docs/research/corpus-ontology-census-2026-11-09.md), and it is the usual argument of the conditional aggregates
+  a whole-column or whole-row reference in 96 of its 2,120 workbooks, of which 1,013 hold formulas (a marginal
+  count; docs/research/corpus-ontology-census-2026-11-09.md), and it is the usual argument of the conditional
+  aggregates
   (`SUMIF(A:A,x,B:B)`), which Designs 12 and 13 bring into the index.
 - **Excel.** Nothing to match: what the index files is not observable. The values are a full recalculation's.
 - **Why the index refuses it today.** `instantiate` (`read_index/walk.rs`) refuses a range whose last row is the
@@ -47,8 +48,8 @@ point below on main: `/out/drafts/whole-column/experiments/`).
 - **Why it is exact.** Design 4 asks a clean cell's value and work to be functions of what the index files. The
   value is a function of the columns' cells, which the rectangle files. The work is a function of those cells and
   of the sheet's last used row, which the head files: any move of that row dirties the reader, and a full pass
-  that moves the row inside itself records it as unknown (11.3), so no clean reader was computed with another
-  row. This is Design 1's "The used area" rule with the widest window, so it over-dirties and never
+  that changes the row at any point, even back to where it began, records it as unknown (11.3), so no clean
+  reader was computed with another row. This is Design 1's "The used area" rule with the widest window, so it over-dirties and never
   under-dirties.
 - **What it costs.**
   - A sheet that grows by appended rows dirties every whole-column reader on it at each append. For a few totals
