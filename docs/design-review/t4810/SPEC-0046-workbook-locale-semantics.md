@@ -334,16 +334,36 @@ workbook locale goes the same way:
   `root` key, name their locale, and keep their sidecars apart with the existing `oracle_dir` key. The same
   typed string then has five recorded answers, which is the probe: `1.234,5` is a number under de-DE and text
   under en-GB. A case that makes sense under one locale only lives in that locale's own suite.
-- **The sidecar says what it was computed under.** `source` gains `locale` and `language`. The harness refuses a
+- **The sidecar says what it was computed under.** `source` gains `locale` and `language`. Its field names are
+  also the remote oracle's wire format, pinned by a test: the two fields and `formula_local` are added on purpose,
+  and an old client drops them. The harness refuses a
   sidecar whose locale is not its suite's, and `rustsheet-oracle fill` refuses a case whose locale has no
   target (T-4809). A sidecar without the field is en-US, which every existing sidecar is.
 - **The oracle has a target per locale** (T-4809), each pinned by its own canary: two cells whose en-US answers
   differ, a day-first `DATEVALUE` difference and a decimal-comma `VALUE`, as the en-US canary pins en-US today
-  (`tools/src/rustsheet_tools/oracle/canary.py`). The canary also records `formulasLocal` of one stored formula,
-  which pins the language (U2).
+  (`tools/src/rustsheet_tools/oracle/canary.py`). The canary's expected values are en-US by construction and are
+  checked with no locale, so they become a table per target, or every other fill is refused. The canary also
+  records `formulasLocal` of one stored formula, which pins the language.
+- **What decides a target's language is not known (U2)**, and nothing in the repository evidences it: the backend
+  sends no locale of any kind, and only the regional format is known to follow the site. The probe is small: one
+  stored formula, `=SUM(A1,1.5)`, read as `formulasLocal` on a site with de-DE regional settings, with and without
+  an `Accept-Language` header, and on a site created in German. It runs before the five sites are made: if the
+  language follows the language a site was created with, a site made in English cannot become the de-DE target
+  (the oracle lane's caution; a site's creation language is said not to be changeable, which is unverified here).
+- **A shared case has one sha256 across locales**, and three places key on it. Each must carry the target, or one
+  locale's answer is served to another (the oracle lane's read):
+  - the fill's cache, `eval/.cache/oracle/<backend>/<input sha256>`;
+  - the remote oracle's requests, named by the workbook's sha256 (decision 0442): the target becomes a key prefix,
+    and until then a worker refuses a request that names one;
+  - the canary check above.
 - **Typed entries.** `{"entered": …}` is sent as a `values` PATCH. Microsoft documents that this does not parse a
   locale-shaped string (above). Under a non-en-US target the backend sends typed entries as `formulasLocal`,
-  after the target's canary has shown that this parses as typing does (U1). The en-US path does not change.
+  after the target's canary has shown three things (U1): that the string is parsed as typing parses it, that it
+  is not stored as text, and that it is not parsed as en-US. `1.234` shows all three under de-DE: 1234 if typed,
+  1.234 if read as en-US, text if not parsed, with `ISNUMBER` and `ISTEXT` beside it. A typed date needs the
+  number format Excel chose, which the PATCH's response carries and the fill logs. What a refused typed entry
+  answers on this route is evidenced again (decision 0179 knows it for a `values` PATCH only). The en-US path
+  does not change.
 - **Shape L.** A spec case lists cells under `"formula_local": ["Sheet!A1", …]`. The fill reads each one's
   `formulasLocal` after the recalculation into the sidecar's `formula_local`, and the harness compares it with the
   engine's localized formula text. It is scored apart from values, as displayed text is (`text_expect.rs`), and

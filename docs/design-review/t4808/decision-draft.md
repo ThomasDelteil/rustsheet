@@ -59,7 +59,10 @@ on main, because both edit the phase table.*
    mine: yes.)
 2. Evidence by one Excel for the web site per locale, which you create (five sites, the oracle app granted on
    each)? Or can the oracle service that is being set up take a locale per request? (sites/service; mine: whichever
-   exists first; the decision names "an oracle target per locale" and T-4809 builds it.)
+   exists first; the decision names "an oracle target per locale" and T-4809 builds it. Before any site is made,
+   one small probe should run (SPEC-0046, unknown U2): what decides the language of a site's formulas. The oracle
+   lane cautions that a site's language may be fixed when the site is created, so a site made in English might
+   never serve German function names. That caution is not verified here.)
 3. Interim status: callable and marked unverified, with an API query for it, rather than refused? (yes/no; mine:
    yes.)
 4. With UI-first as the direction: is one locale wanted for the collaborative sheet's first release, and which?
