@@ -124,7 +124,7 @@ Probe shapes (Design 5 says how the harness carries each):
 | **T** | the value, and the number format Excel chose, of a string typed into a cell under the locale | as `{"entered": …}`, sent in a way that is not typing under another locale (U1) |
 | **D** | the displayed text of a cell (`Range.text`) under the locale | yes, as `"text": […]` |
 | **L** | a stored formula as the locale shows it (`formulasLocal`), and a formula typed in the locale read back in its stored form | no (T-4811) |
-| **O** | an Office.js fact Graph cannot read: `cultureInfo`, `numberFormatLocal`, the separators in force | no; a Script Lab request, as `docs/research/t5145-recalc-probe` is |
+| **O** | an Office.js fact Graph cannot read: `cultureInfo`, `numberFormatLocal`, the separators in force | no; the Script Lab request `docs/research/workbook-locale-probe` |
 
 "Decides" says which of Excel's two settings we believe decides the item: **R** the regional format, **L** the
 display language, **?** unknown. Every entry of that column is a belief until its probe is filled.
@@ -261,6 +261,12 @@ What follows from "the document's":
   applies).
 - Displayed text (`formatted`, `displayed`) follows the document's locale, so that a cell shows what
   `TEXT(cell, its format)` returns.
+- The editor takes what the document's locale writes. In a document whose locale writes `1,5`, a typed value and
+  a typed formula both use the decimal comma, and a typed formula uses that locale's argument separator: the
+  four characters of `FormulaSyntax` (Design 3), which the facade gives the UI so that the formula bar,
+  AutoComplete and the argument tooltip insert the same ones. What `1.5` typed into such a document becomes
+  (text, a date, a number) is item A1's probe, not a choice of the UI's. The UI lane asked for this to be
+  said, and wants no per-viewer formula language in the first release.
 
 ### 2. Identifiers
 
@@ -281,8 +287,10 @@ Today three places derive separators from the decimal separator, and two of them
 replaces them:
 
 ```rust
-/// How formula text is written under a locale. Read by the lexer, the parser and the printer, and by nothing else.
-pub(crate) struct FormulaSyntax {
+/// How formula text is written under a locale. Inside the engine only the lexer, the parser and the printer read it.
+/// The facade hands a copy to a UI (`Workbook::formula_syntax`), which reads it and cannot change it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct FormulaSyntax {
     pub decimal: char,        // 1,5
     pub argument: char,       // SUMME(1; 2), and the union operator
     pub array_column: char,   // between the items of a row of an array constant
@@ -358,6 +366,7 @@ pub struct WorkbookOptions {
 impl Workbook {
     pub fn locale(&self) -> &str;     // the canonical tag
     pub fn language(&self) -> &str;
+    pub fn formula_syntax(&self) -> FormulaSyntax;   // what the editor inserts and accepts (Design 1)
 }
 impl Txn<'_> {
     /// Changes the document's locale. Everything is owed afterwards.
@@ -437,7 +446,10 @@ Each step is an existing task, S or M. A step relies only on the designs named.
 3. **T-4809**: an oracle target per locale with its canary (Design 5). It settles U1, U2 and U6 before anything
    else is filled, because they decide which shapes Graph can serve.
 4. **T-4811**: the suite's `locale`, the sidecar's fields, shape L, the report rows (Design 5).
-5. A Script Lab request for the O items (D8, E4, E5, F6, and whatever U1 and U2 push there), written with T-4812.
+5. The Script Lab request `workbook-locale` (docs/research/workbook-locale-probe/): one script a person runs under
+   each setting. It answers U1 and U3 to U6 and gives a first reading of most of the inventory, the O items
+   (E4, E5, F6) included. Two crossed runs (German format with English language, and the reverse) tell which of
+   Excel's two settings decides each item. D8 (R1C1 letters) is read in the UI.
 6. **T-4812 to T-4816**: the inventory's cases, written once (T-4812, de-DE, writes the shared cases; the others
    fill them and add what their locale alone needs), each recording its answers in docs/excel-semantics/ and
    generating its locale's rows of the tables of Design 4.

@@ -18,14 +18,17 @@ into SPEC-0002 as Design 9. Rules marked (probe Mn) are provisional until the pr
   true only when a settled workbook's values are a function of the document, which needs loops evaluated as on a
   fresh open, seeded draws and a fixed clock. The wasm engine has none of the three yet (T-5288), so it refuses
   the two modes until it does.
-- **Corrected at about 12:15Z, after the review of the first change (CR-321684914).** The reviewer found a
-  Microsoft page my research had missed ("Excel performance: Improving calculation performance"). It states what
-  I had called undocumented, and two of my provisional rules said the opposite. They now follow it:
-  - a formula written in Manual mode **is evaluated at once**, from stored values, and stays owed until
-    `calculate` (it was: not evaluated until `calculate`);
-  - a structural edit in Manual mode **is paid at once**, as in Automatic (it was: owes everything until
-    `calculate`). OnDemand, which is ours, is unchanged.
-  A provisional rule is now what Microsoft documents wherever it documents anything, and the probes still ask.
+- **Corrected twice on 2026-11-11 (about 12:05Z and 12:45Z), after the two review rounds of the first change
+  (CR-321684914).** The reviewer found a Microsoft page my research had missed ("Excel performance: Improving
+  calculation performance"). It states what I had called undocumented:
+  - a formula written in Manual mode **is evaluated at once**, from the stored values of the cells it reads, and
+    stays owed until `calculate` (my first draft said: not evaluated until `calculate`). The design follows it.
+  - On a **structural edit in Manual mode** the pages pull both ways: two lists name the insert of a row among the
+    triggers of a recalculation without "in automatic mode", and two sentences say Manual mode recalculates only on
+    request. For forty minutes this section said "paid at once"; the second round showed that this gave one side
+    as the documented one. The rule is again the first draft's: it owes everything, and nothing is calculated
+    until `calculate`. The probes ask Excel (M12, and M15 and M16 for a name added and a row hidden).
+  A provisional rule is now what Microsoft documents where its pages agree, and says both sides where they do not.
 - **Reviewed by the engine lane** (5 blockers, all folded in): a `calculate` with nothing owed still runs a full
   pass when the stored values are not a normal full pass's; Automatic keeps exactly today's passes, and no read
   or save fails there; a host gets a read of the stored value for its before-image.
@@ -50,8 +53,9 @@ recalculation lists the corrected cells. No other engine has this limit, because
    in Manual and OnDemand modes only. Agree? (yes/no; mine: yes for now. Excel recalculates before a save by
    default in Manual mode; the option that keeps stale values waits for probe M9. In Automatic a save never
    fails for this: the engine lane showed it would break saves that work today.)
-4. A **structural edit is paid at once in Manual mode**, as Microsoft's two pages list it (probe M12), and owes a
-   full recalculation in OnDemand mode. Acceptable? (yes/no; mine: yes.)
+4. A **structural edit in Manual or OnDemand mode owes a full recalculation**, and nothing is calculated until
+   `calculate`. For Manual mode Microsoft's pages pull both ways (above), and probe M12 asks Excel. Acceptable?
+   (yes/no; mine: yes.)
 5. `AutomaticExceptTables` is **not** in this task: data tables have no index yet, and the file's `autoNoTable`
    round-trips as text. Agree? (yes/no; mine: yes.)
 6. Is the cone slice (c) worth building before the collaborative sheet asks for it, given the limit above? (yes/no;
@@ -66,7 +70,7 @@ recalculation lists the corrected cells. No other engine has this limit, because
 
 ## Probes this section waits for
 
-`/mail/oracle/t5145-recalc-probe/` (README.md, cases.js, three workbooks): M1 to M4, M6, M8 to M14 and V1. None blocks
+`/mail/oracle/t5145-recalc-probe/` (README.md, cases.js, three workbooks): M1 to M4, M6, M8 to M16 and V1. None blocks
 slice (a): each provisional rule is one hook.
 
 ## Proposed spec text
@@ -94,18 +98,23 @@ where it documents anything; where this design departs from that, it gives the r
     or changed data"; Ctrl+Alt+F9 "recalculates all cells in all open workbooks" (S1). The state between an edit
     and its recalculation has a name, `xlPending`: "Changes that trigger calculation have been made, but a
     recalculation has not yet been performed" (3), and in Manual mode the status bar shows "Calculate" (S3).
-  - Three things happen in Manual mode without F9 (S3, and S1 for the second):
+  - Two things happen in Manual mode without F9 (S3):
     - the formula that is entered or edited: "A formula or part of a formula is immediately evaluated
       (calculated), even in manual calculation mode, when you do one of the following:" "Enter or edit the
       formula.";
-    - a structural edit: both pages list the insert or delete of a row or column among the actions that
-      trigger a recalculation, without the words "in automatic mode" that other items of the same lists carry;
     - a save: Manual mode "recalculates all open workbooks only when you request it by pressing F9 or
       Ctrl+Alt+F9, or when you save a workbook", the last while "Recalculate workbook before saving" is on,
       which choosing Manual selects (3).
 
     Shift+F9 "resolves dependencies for the worksheet and resets all previously uncalculated (dirty) cells as
     calculated" (S3).
+  - On a structural edit the pages pull both ways. S1 and S3 both list the insert or delete of a row or column
+    among the actions that trigger a recalculation, without the words "in automatic mode" that other items of
+    the same lists carry. But S1 says of its list "When calculation is set to automatic, recalculation occurs
+    after every data input and after certain events such as the examples given in the previous section", S3
+    says Manual mode recalculates "only when you request it", and the two lists disagree on which items carry
+    the words. This design takes the two sentences over the missing words *(probe M12; M15 and M16 ask the
+    same of a defined name added and a row hidden)*.
   - The mode is not the document's. On the desktop it is the application's: "The first document that is opened uses
     the calculation mode with which it was last saved. Documents that are opened later use the same mode", and a save
     writes the current mode into the file (3). On the web it "will affect the current workbook only" (3), and
@@ -114,11 +123,12 @@ where it documents anything; where this design departs from that, it gives the r
     recalculation will not be performed on load, even when this attribute is set" (7). "When you select Manual, Excel
     automatically selects the Recalculate workbook before saving check box" (3).
   - Documentation is not evidence, so the probe request `t5145-recalc` asks Excel each of these (the M cases).
-    Documented and probed: an entered or edited formula is evaluated at once (M3, M4); a row inserted in Manual
-    mode recalculates (M12); F9 runs a volatile cell with nothing dirty (M6); what a save and a load of a Manual
-    workbook do (M9, M10); what Shift+F9 leaves dirty (M14). Not documented, and probed: what a read of a dirty
-    cell returns (M1); whether a formula entered over a dirty precedent reads its stored value or calculates it
-    first (M2); whether a pasted formula counts as entered (M13); a switch back to Automatic (M11).
+    Documented and probed: an entered or edited formula is evaluated at once (M3, M4); F9 runs a volatile cell
+    with nothing dirty (M6); what a save and a load of a Manual workbook do (M9, M10); what Shift+F9 leaves
+    dirty (M14). Not settled by the pages, and probed: whether a row inserted, a name added or a row hidden in
+    Manual mode recalculates (M12, M15, M16). Not documented, and probed: what a read of a dirty cell returns
+    (M1); whether a formula entered over a dirty precedent reads its stored value or calculates it first (M2);
+    whether a pasted formula counts as entered (M13); a switch back to Automatic (M11).
   - OnDemand and `watch` are not Excel's. They are this engine's, and their reference is a full recalculation, as
     for every other path of this spec.
 - **Other engines** (the same note).
@@ -147,13 +157,12 @@ where it documents anything; where this design departs from that, it gives the r
     (callers use one to force a recalculation, Design 5), and when the transaction holds an op that is not a
     cell write. Until T-5166's maintenance is on main, a transaction that writes a formula makes the index
     stale, so it owes everything too, and no index is built at a transaction.
-  - A structural edit is paid at once in Automatic and in Manual mode. In Automatic mode a transaction Design 8
-    restricts is paid by Design 8's pass (once T-5136 has built it; today it is a full pass). In Manual mode the
-    transaction ends as an Automatic one does, by paying everything owed, the cells earlier edits left owed
-    included: Microsoft lists the insert or delete of a row or column as triggering a recalculation in every
-    mode (above) *(probe M12)*. So the owed set and the recorded last used rows never have to be mapped through
-    an edit's `RefMap` in Manual mode. In OnDemand mode, which is ours, a structural edit owes everything, for
-    the same reason: this design does not map the owed set through the edit.
+  - A structural edit is the one op that differs by mode. In Automatic mode a transaction Design 8 restricts is
+    paid at once by Design 8's pass (once T-5136 has built it; today it is a full pass). In Manual and OnDemand
+    modes it owes everything: the owed set and the recorded last used rows would have to be mapped through the
+    edit's `RefMap`, and this design does not do that. Nothing is calculated until `calculate` *(probe M12: if
+    Excel recalculates at an insert in Manual mode, the transaction ends by paying everything it owes, as an
+    Automatic one does, and the rule changes in this one place)*.
   - A load leaves nothing owed, whether or not it recalculated: the stored values are the file's or the load's,
     and the first pay after it is a full pass, since no work bound is known ("Paying").
   - A setter that forgets the work bound (`set_iteration`, a lowered ceiling, the depth and stack limits,
@@ -184,8 +193,8 @@ where it documents anything; where this design departs from that, it gives the r
     same values, outcomes and edit paths: nothing is owed when `edit` returns, an empty transaction still runs a
     full pass, and no read and no save ever fails for being owed (the two errors below are Manual's and
     OnDemand's). Between edits something can be owed, after a setter: as today, it is paid by the next edit.
-  - **Manual.** `edit` marks. It pays nothing, with two exceptions: it evaluates the formulas it wrote (the next
-    item), and a structural edit is paid at once ("What is owed"). `Workbook::calculate` pays everything (F9).
+  - **Manual.** `edit` marks. It pays nothing, with one exception: it evaluates the formulas it wrote (the next
+    item). `Workbook::calculate` pays everything (F9).
     `Workbook::recalculate` stays a full pass (Ctrl+Alt+F9), and ends settled: the edits it makes itself (it
     refreshes `refreshOnLoad` pivots through `edit`) pay, whatever the mode. `Workbook::set_calc_mode(Automatic)`
     pays everything *(probe M11)*. `Workbook::calculate_sheet(sheet)` is Shift+F9, which "recalculates the cells
@@ -293,19 +302,19 @@ where it documents anything; where this design departs from that, it gives the r
 - **Why it is exact.**
   1. *Automatic* runs the passes it runs today.
   2. *Manual.* The reference is the same workbook with incremental recalculation off. There every transaction
-     owes everything, so `edit` evaluates nothing, and `calculate` and a transaction with a structural edit run
-     `Model::evaluate`. Call those two a pay. With incremental recalculation on, the only cells a pass changes
-     between two pays are the written formula cells of an entry evaluation, and they are owed; so the stored
-     value of every cell that is not owed is the last pay's, as in the reference. The two differ between pays
-     only in owed cells, which `is_stale` reports in both. The owed set holds every formula cell one of whose
-     inputs changed since then: each transaction adds its closure in the index as it then is, and a formula
+     owes everything, so `edit` evaluates nothing, and `calculate` runs `Model::evaluate`. With incremental
+     recalculation on, the only cells a pass changes between two `calculate` calls are the written formula
+     cells of an entry evaluation, and they are owed; so the stored value of every cell that is not owed is the
+     last recalculation's, as in the reference. The two differ between `calculate` calls only in owed cells,
+     which `is_stale` reports in both. The owed set holds every formula cell one of whose inputs changed since
+     then: each transaction adds its closure in the index as it then is, and a formula
      written later is owed itself, with its readers. A formula that stopped reading a written cell stays owed,
      which is a superset. The last used rows' moves are taken since the last pass at every transaction and once
      more at the pay; a row a single step crosses lies between the recorded row and the row after that step
      or the step before it, so a head any step crosses is owed. So `calculate` is a restricted pass whose edit
      is the union of the deferred transactions, and Designs 3 to 6 apply to it as written. An entry
      evaluation evaluates no cell but the written ones, neither draws nor reads the order state (its rules
-     above), so it leaves nothing behind that a later pass reads, and the pay computes what the reference's
+     above), so it leaves nothing behind that a later pass reads, and `calculate` computes what the reference's
      does. When nothing is
      owed and `can_restrict` fails, the pay is the reference's own full pass. A history with a loop, an
      Excel-order reader, a volatile draw or a work limit passed gives Manual other values than Automatic,
@@ -346,7 +355,7 @@ where it documents anything; where this design departs from that, it gives the r
     when `edit` returns; written over an owed precedent, or over a formula cell placed after it, it holds the
     value the stored precedent gives, and `is_stale` reports it; written as an array formula, or with a draw,
     it is left unevaluated; in each case `calculate` then gives the twin's values, and no formula cell other
-    than the written ones was evaluated by the entry. A transaction with a structural edit leaves nothing owed.
+    than the written ones was evaluated by the entry. A transaction with a structural edit owes everything.
   - Automatic is unchanged: `Workbook::edit_paths` and `last_recalc_outcome` after every edit of the suites equal
     main's, an empty transaction runs a full pass, and a save after `set_iteration` succeeds.
   - The recoveries: a `calculate` after a pass that shared its work out and a raised ceiling computes the cells;
