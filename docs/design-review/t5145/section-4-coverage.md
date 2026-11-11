@@ -5,6 +5,19 @@ into SPEC-0002 as Design 11. OFFSET and INDIRECT are left to T-5420, as ruled: h
 
 ## In short
 
+- **Sent for review at 20:51Z on 2026-11-11** (the fourth of T-5145's five changes; the text below is the
+  branch's). Changed since the 16:25Z note:
+  - A full recalculation that moves a sheet's last used row records that row as unknown, so the next edit
+    re-runs every formula of that sheet whose work follows the used area (measured on today's engine: a spill
+    laid inside the pass moved the row, and the same document's next full recalculation spent 60,078 units
+    against 15,159).
+  - Structural edits: Design 8 on main now says the index is kept across an insert or a delete of rows or
+    columns, shifted in place (another lane's amendment, merged today; its task, T-5419, is not built yet). The
+    rule here no longer speaks of an old and a new index: the list as it was before the edit and the list after
+    it are both recalculated with their readers, and the text says why a shifted index and a rebuilt one give
+    the same list.
+  - The ten notes the reviewers left on section 3 (Design 10) travel with this change.
+
 - **Changed at 16:25Z on 2026-11-11, before review.** An independent reviewer read this section first and found
   five blocking points, three of them with a wrong value measured on today's engine (I reran the three
   experiments). All are fixed on the cautious side:
@@ -98,7 +111,10 @@ conditional aggregates need now that T-5143 is not under it.
   scalar anchor (until 11.3), a data table, an external book, iterative calculation. A formula whose static result
   may be an array is a dynamic anchor even while it holds one cell, so it is 11.3's: a bare `=INDIRECT(…)` or
   `=LET(…)`, and an OFFSET whose height or width is not the literal 1 (`=OFFSET(Y1,0,0)` is a scalar, and a
-  formula cell).
+  formula cell). Design 2's "A refused build is remembered with its cause" applies to these and to the cap: with
+  the list, its first case (a formula cell the index cannot see refuses every build while it holds that formula)
+  is left to the array formulas and spill cells named here, since every other formula the index does not model
+  is on the list and refuses no build.
 - **The closure** (Design 3) is seeded by the written cells, the moved heads and the list, and walks readers as
   before: a formula that reads an always-dirty cell is filed under that cell like any reader. Past the limit, a
   quarter of the formulas the index knows with the list counted, the recalculation is full. So a workbook with a
@@ -129,14 +145,13 @@ conditional aggregates need now that T-5143 is not under it.
      | the pass pools (committed and thrown-away work) | every formula | a run gets the least of its own limit and the pool left | T-5172's own-limit guard (Design 4). Unchanged |
      | `evaluation.cells` | every read | a clean cell is not `Evaluated` in a restricted pass | the IFS row above, and 11.3's read of a clean anchor's spill cell |
 
-     So a workbook that uses a conditional aggregate gets no restricted pass until Design 13's indexes make the
-     IFS cache charge by the document alone, and a workbook that searches gets none until the search cache does
-     (T-5192, which Design 13 does not cover). Each keeps the passes it has today. Its cost must not grow: with a
-     list no closure is empty, so the edit path asks `restricted_pass_allowed` before it walks the list's
-     closure, and a workbook whose list's closure passes the limit remembers that until its formulas change. Two
-     paragraphs of Design 4 are read with this table from T-5132 on: "Why it then stays an upper bound" and "Why
-     this is exact" say the conditional aggregates stay off the allowlist. They do, and they now run as
-     always-dirty formulas under the IFS row's rule.
+     So a workbook that uses a conditional aggregate gets no restricted pass until the per-pass indexes of Taskei
+     P559664607 make the IFS cache charge by the document alone, and a workbook that searches gets none until the
+     search cache does (T-5192). Each keeps the passes it has today. Its cost must not grow: with a list no closure is
+     empty, so the edit path asks `restricted_pass_allowed` before it walks the list's closure, and a workbook whose
+     list's closure passes the limit remembers that until its formulas change. Two paragraphs of Design 4 are read
+     with this table from T-5132 on: "Why it then stays an upper bound" and "Why this is exact" say the conditional
+     aggregates stay off the allowlist. They do, and they now run as always-dirty formulas under the IFS row's rule.
 - **Volatile draws.** RAND, RANDBETWEEN and RANDARRAY draw anew in every pass, restricted or full, so their cells
   and readers recalculate at every edit, as Excel's volatile functions do (S1 lists RANDBETWEEN and S3 RAND;
   probe V1 asks RAND; RANDARRAY is in neither list and no case asks it, so for it the rule is ours). A bare
@@ -149,25 +164,38 @@ conditional aggregates need now that T-5143 is not under it.
 - **The used area.** An always-dirty formula whose work follows the used area files no head and needs none: it is
   in every closure.
 - **Structural edits** (Design 8; this rule lands with T-5136, which builds Design 8: today a structural edit is a
-  full pass). The lists of both indexes are in D0 of every structural edit Design 8 restricts: the old index's,
-  each cell at its place after the edit, and the new index's, built for the formulas after the edit. The new one
-  covers a volatile cell, a name the edit shrinks, a moved cell that reads a name's relative part, and `ROW()`.
-  The old one covers a formula the edit takes off the list. With A3 `=SUM(B1:XFD2)` and A4 `=A3*2`, a delete
-  of column C rewrites A3 to `=SUM(B1:XFC2)`, which the index models: A3 is on the old list alone, it filed no
-  rectangle before the edit, and Design 8 runs a rewritten formula without its readers. Without the old list
-  A4 keeps its value where a full pass changes it.
+  full pass). The list as it was before the edit, each cell at its place after it, and the list as it is after
+  the edit are both in D0 of every structural edit Design 8 restricts. The list after the edit covers a volatile
+  cell, a name the edit shrinks, a moved cell that reads a name's relative part, and `ROW()`.
+  The list before it covers a formula the edit takes off the list. With A3 `=SUM(B1:XFD2)` and A4 `=A3*2`, a
+  delete of column C rewrites A3 to `=SUM(B1:XFC2)`, which the index models: A3 is on the list before the edit
+  alone, it filed no rectangle then, and Design 8 runs a rewritten formula without its readers. Without the list
+  as it was, A4 keeps its value where a full pass changes it.
+
+  The index after the edit is built for the new formulas or, from T-5419 on, shifted in place (Design 8,
+  "Re-keying"). The two give one list:
+  - the shift moves the list's cells with their cells, as it moves every reader key;
+  - it drops and files again all of D0, so what this design adds to D0 (both lists, and 11.2's readers of a
+    changed name and of a span) is filed again with the rest, and a formula filed again joins or leaves the list
+    as in maintenance. Of "Re-keying"'s refusals at a refile, `leaves` and `instantiate` then put the formula on
+    the list, and the cap still refuses;
+  - a formula the edit moved without rewriting is not filed again, and a build can list it where the shifted
+    index models it: `=SUM(A1048570:A1048575)` once a row goes in above it reads to the last row. "Re-keying"'s
+    rule for it stands as written: that shift runs a full pass and leaves the index stale, and the next build
+    lists the formula.
 - **Maintenance** (Design 2). A written formula the index does not model joins the list, and one that leaves it
   is taken out. Neither makes the index stale. This replaces "a written cell that holds a formula the index does
   not model" in the list of what still makes the index stale, in T-5166's text of Design 2's "Maintenance"
   (Design 7).
-- **What it does not give.** A workbook whose full pass nests keeps no restricted pass: an always-dirty cell read
-  by a formula placed before it, or reading one placed after it. Design 13 removes the first case for a **leaf**,
-  an always-dirty formula that reads no cell (`=TODAY()`, `=ROW()`): its pass runs a leaf before its reader.
-  TODAY is in 72 and ROW in 72 of the 1,136 corpus workbooks with formulas (11.4), so that is the common case.
-  An always-dirty formula with an unknown or dynamic footprint (INDIRECT, OFFSET, a whole column) is no
-  candidate there, and a workbook where one nests still declines. And until per-cell spend is on main
-  (T-5167), every restricted pass adds the list's committed work to the summing bound again, so a costly
-  always-dirty formula has its pass rejected every floor((L - F) / r) + 1 edits (Design 4, "Per-cell spend").
+- **What it does not give.** A workbook whose full pass nests keeps no restricted pass: an always-dirty cell read by a
+  formula placed before it, or reading one placed after it. The dependency-first full pass (Taskei P559418140; its
+  amendment is its own change) removes the first case for a **leaf**, an always-dirty formula that reads no cell
+  (`=TODAY()`, `=ROW()`): its pass runs a leaf before its reader. TODAY is in 72 and ROW in 72 of the 1,136 corpus
+  workbooks with formulas (11.4), so that is the common case. An always-dirty formula with an unknown or dynamic
+  footprint (INDIRECT, OFFSET, a whole column) is no candidate there, and a workbook where one nests still declines.
+  And until per-cell spend is on main (T-5167), every restricted pass adds the list's committed work to the summing
+  bound again, so a costly always-dirty formula has its pass rejected every floor((L - F) / r) + 1 edits (Design 4,
+  "Per-cell spend").
 - **What the implementation may rely on.**
   1. Three places refuse today. `leaves` or `instantiate` gives `None` for a formula the walk does not model.
      `Model::read_index` returns `None` for a tree past the node bound. `indexed_formula` gives `Err` for a cell
@@ -279,8 +307,10 @@ conditional aggregates need now that T-5143 is not under it.
 - **What the implementation may rely on.**
   1. `ParsedDefinedName::Formula` holds a formula body's tree, which the walk reads as it reads a cell's, and
      `NameReference::at` places a reference name at a cell: the red team's `rt-index-name` uses one (`Corner`).
-  2. Design 8 builds the index for the formulas after the edit before it runs its pass; the names are resolved
-     again in that build.
+  2. Design 8 has the index for the formulas after the edit before it runs its pass. A build resolves the names
+     again. A shift (T-5419, "Re-keying") resolves each name with readers again, keeps the new rectangles in
+     place of the old, and files the D0 readers above again, each through the build's own path; a reader left
+     out of D0 read rectangles the edit only shifted, as "Re-keying" requires of every entry it keeps.
   3. E1, E4 and E5 are evidenced (references.md; t4702-names-*, t4747-*, t4760-*, t4272-3d-span-*).
 - **What it must show.**
   - The conservativeness oracle by perturbation, with absolute, relative, formula-bodied and nested names, unions,
@@ -311,6 +341,15 @@ conditional aggregates need now that T-5143 is not under it.
     their readers join it. The footprint's cells count toward the closure's limit as written cells do.
   - **A write over an anchor or a spill cell** is not a write of literals (`writes_only_literals` already asks for
     cells outside any spill), so the edit recalculates fully and the index is built again (Design 2).
+  - **The used area inside a full pass.** A full pass lays its spills as its anchors run, so an anchor that runs
+    before another anchor's spill is laid is computed with the last used row as it then was. With K1
+    `=INDEX(A1:A60000*2,5)`, a one-cell anchor whose tailed read follows that row, and M2 `=SEQUENCE(Z1)` with
+    Z1 = 5000, the full pass that first lays M2's spill spends 15,159 units, and the next full pass of the same
+    document 60,078 (measured on main). The rows are recorded at the end of a pass (Design 3), so the next
+    closure would see no move and leave K1 clean, with its work in the bound as it was at the earlier row. So a
+    full pass that ends with a sheet's last used row other than the one it began with records that sheet's row
+    as unknown, and the next closure holds every head reader of that sheet. A kept restricted pass changes no
+    footprint, so it moves no row.
 - **The pass.** Dirty anchors run first, in the order the last full pass left (`Incremental::anchor_rank`), and
   write their spill cells in place. A clean anchor's spill cells are read as stored values. This is new code in
   the driver: today a read of a spill cell goes to `evaluate_spill_cell`, never to `clean_cell_value`, and it
@@ -350,9 +389,9 @@ conditional aggregates need now that T-5143 is not under it.
   main), which the fourth test catches. So it is one pass, flat as the restricted one was, with the same values,
   and Design 4's bound holds.
 - **What it does not give.** A full pass runs anchors first, so an anchor that reads a formula cell evaluates it
-  inside itself: the pass is not flat, and restricted passes are declined (Design 1; T-5297). Until Design 13
-  evaluates an anchor's precedents before it, this slice helps the workbooks whose anchors read literals and
-  other anchors' spills. A footprint that changes is a full pass.
+  inside itself: the pass is not flat, and restricted passes are declined (Design 1; T-5297). Until the
+  dependency-first full pass evaluates an anchor's precedents before it, this slice helps the workbooks whose anchors
+  read literals and other anchors' spills. A footprint that changes is a full pass.
 - **Structural edits** (Design 8; with T-5136). Unchanged: Design 8's "the workbook holds no dynamic anchor"
   stands, and now also covers spilled and blocked anchors. An insert or a delete resets the dynamic anchors of
   the edited sheet (`reset_dynamic_array_spills`) and a full pass re-spills them; the ranks are keyed by place,
@@ -379,7 +418,10 @@ conditional aggregates need now that T-5143 is not under it.
     and the SUMIFS-over-INDEX fixture above, at a pass allowance of 352 to 393 units, where a full
     recalculation ends in share mode with `#VALUE!` and a kept restricted pass would hold 0.
   - `E1 =A1:A3*2` and `G2 =E2+B1`: a write of B1 is kept (G2 reads a clean anchor's spill cell).
-  - Mutations: the footprint test dropped, or run after the write; a footprint's readers left out of the closure;
+  - The used area inside a pass: the K1 and M2 fixture above, then an edit no formula reads: K1 is in the
+    closure, and at K1's own limit the values equal a full recalculation's.
+  - Mutations: the footprint test dropped, or run after the write; a sheet's row not recorded as unknown after a
+    full pass that moved it; a footprint's readers left out of the closure;
     the blocked anchors not seeded; the put-back without the footprints; the capture without them; a restart
     recorded in a restricted pass; a clean anchor's spill cell not read as stored; the rectangle test (the
     fourth rejection) dropped.
@@ -395,14 +437,15 @@ formula reads, by what is on main:
 | a defined name, a 3-D span | full pass | restricted: that cell and its readers | skipped | skipped |
 | a union | full pass | restricted: that cell and its readers | the same | the same, until its walk charges by its areas' cells |
 | a SEQUENCE spill | full pass | full pass | full pass | restricted: the anchor and its spill's readers |
-| a SUMIFS | full pass | full pass | the same | the same, until Design 13's indexes and Design 12 |
+| a SUMIFS | full pass | full pass | the same | the same, until the per-pass indexes (Taskei P559664607) and the footprint rules (T-5143) |
 | a VLOOKUP (indexed today) | skipped, and no restricted pass | the same | the same | the same, until T-5192 |
 | a bare `=INDIRECT(…)` or `=LET(…)`, whose result may be an array | full pass | full pass | full pass | restricted: a dynamic anchor, always dirty |
 | a two-cell cycle | full pass | full pass | full pass | full pass (`can_restrict`; Taskei P559330849) |
 
-A workbook whose full pass nests gets none of the restricted cells of this table. Design 13 removes the nesting
-among modelled formulas (a total above its data, an anchor that reads formulas) and through a leaf (a `TODAY()`
-cell read from above). Nesting through any other always-dirty formula stays (11.1, "What it does not give").
+A workbook whose full pass nests gets none of the restricted cells of this table. The dependency-first full pass
+removes the nesting among modelled formulas (a total above its data, an anchor that reads formulas) and through a leaf
+(a `TODAY()` cell read from above). Nesting through any other always-dirty formula stays (11.1, "What it does not
+give").
 
 **How common each form is,** so the steps are ordered by the workbooks they reach.
 - Of the 1,136 SpreadsheetBench workbooks with formulas (eval/catalog/usage.tsv), INDEX is in 149, MATCH in 125,
@@ -413,6 +456,13 @@ cell read from above). Nesting through any other always-dirty formula stays (11.
   structured reference, 30 an external reference, 23 a data table, 12 a spill reference and 4 a 3-D reference;
   275 workbooks define a name, and 79 turn iterative calculation on.
 
-So the lookups (T-5192) and the conditional aggregates (Designs 12 and 13) reach the most workbooks, then the
-always-dirty list for TODAY and ROW (11.1), dynamic arrays (11.3), whole-column references and names (11.2). OFFSET
-reaches the fewest, which is the project lead's ruling on its priority.
+So the lookups (T-5192) and the conditional aggregates (T-5143, after Taskei P559664607) reach the most workbooks,
+then the always-dirty list for TODAY and ROW (11.1), dynamic arrays (11.3), whole-column references and names (11.2).
+OFFSET reaches the fewest, which is the project lead's ruling on its priority.
+
+**Default.** `Workbook::set_incremental` is on by default since decision 0422 (Rollout 8, T-5154),
+and so is the collaborative sheet's `EngineOptions.incremental`. Before it, every edit recalculated
+fully. A host on the system clock sees no change: a skip or a restricted pass needs a fixed clock
+(`Model::can_restrict`). `set_incremental(false)` still turns it off, and a red night of
+`make incremental-nightly` whose cause is not fixed that day turns the default off again
+(`docs/process/agent-workflow.md`).
