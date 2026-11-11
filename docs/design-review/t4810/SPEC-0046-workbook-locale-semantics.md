@@ -462,8 +462,13 @@ pub fn supported_settings() -> &'static [SettingsInfo];
   never read, and the wasm engine is built from `EngineOptions`, which has no locale field. So a current client
   would read a de-DE document as readable and compute it as en-US, and replicas would diverge. Before any client
   may write another locale:
-  - a locale other than `en-US`, or a present `language` key, adds a required capability to the document, so a
-    reader that does not know it reports `UnsupportedRequiredCapabilities` and computes nothing;
+  - a locale other than `en-US`, or a present `language` key, raises the document's reader floor. A required
+    capability alone is a write gate: `evaluate` keeps a document with an unknown required capability readable,
+    read-only (`UnsupportedRequiredCapabilities`), and such a client would still show values computed as en-US.
+    A newer `minimumReader` is unreadable in `compat.rs`, and I-21's floor contract opens the document
+    read-only with every cell unloaded (`apps/collab-sheet/decisions/I-21-floor.md`, D-I21-01). The capability
+    is added too, as the write gate. Which floor applies, and a test of an older reader opening such a document,
+    are part of this step;
   - `compat.rs`'s `evaluate` checks both keys against `supported_settings()` and accepts a pair when it is
     verified. Until then the refusal is right: opening the document would change what it computes;
   - `EngineOptions` and `CalcIdentity` (`rustsheet-contracts`) gain both fields, with a bump of `semantics`, and
