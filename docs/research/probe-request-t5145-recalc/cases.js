@@ -194,6 +194,71 @@ const M = {
     const afterHide = await read(context, s, "A1:B1"); // B1 2 or 6?
     return { afterHide };
   },
+  // M17: two formulas written together in Manual mode, the first reading the second; and a pair in reading order.
+  M17: async (context, s) => {
+    s.getRange("A1").values = [[5]];
+    await context.sync();
+    await setMode(context, Excel.CalculationMode.manual);
+    // B1: 11 (the pair calculated together), 1 (B2 read before it was calculated), or other?
+    s.getRange("B1:B2").formulas = [["=B2+1"], ["=A1*2"]];
+    s.getRange("C1:C2").formulas = [["=A1+1"], ["=C1+1"]]; // the control, in reading order: 6 and 7
+    await context.sync();
+    const afterEntry = await read(context, s, "A1:C2");
+    context.application.calculate(Excel.CalculationType.recalculate);
+    await context.sync();
+    const afterF9 = await read(context, s, "A1:C2");
+    return { afterEntry, afterF9 };
+  },
+  // M18: a dynamic array formula entered in Manual mode, then its input edited.
+  M18: async (context, s) => {
+    s.getRange("A1").values = [[3]];
+    await context.sync();
+    await setMode(context, Excel.CalculationMode.manual);
+    s.getRange("D1").formulas = [["=SEQUENCE(A1)"]]; // D1:D3 1, 2, 3 at once; D1 alone; or nothing until F9?
+    await context.sync();
+    const afterEntry = await read(context, s, "D1:D4");
+    s.getRange("A1").values = [[2]]; // the anchor is dirty: does D3 keep 3 until F9?
+    await context.sync();
+    const afterEdit = await read(context, s, "D1:D4");
+    context.application.calculate(Excel.CalculationType.recalculate);
+    await context.sync();
+    const afterF9 = await read(context, s, "D1:D4");
+    return { afterEntry, afterEdit, afterF9 };
+  },
+  // M19: Calculate Sheet (Shift+F9) with nothing dirty: a volatile cell on the sheet and its reader on another one.
+  M19: async (context, s) => {
+    s.name = "S";
+    const t = context.workbook.worksheets.add("T");
+    s.getRange("A1").values = [[1]];
+    s.getRange("B1").formulas = [["=A1+1"]];
+    s.getRange("C1").formulas = [["=RAND()"]];
+    s.getRange("D1").formulas = [["=C1"]];
+    t.getRange("A1").formulas = [["=S!C1"]];
+    await context.sync();
+    await setMode(context, Excel.CalculationMode.manual);
+    const before = { S: await read(context, s, "A1:D1"), T: await read(context, t, "A1") };
+    s.calculate(false); // Calculate Sheet on S
+    await context.sync();
+    // Does C1 draw? Does D1 follow it? Does T!A1 keep the old draw?
+    const afterSheet = { S: await read(context, s, "A1:D1"), T: await read(context, t, "A1") };
+    context.application.calculate(Excel.CalculationType.recalculate);
+    await context.sync();
+    const afterF9 = { S: await read(context, s, "A1:D1"), T: await read(context, t, "A1") };
+    return { before, afterSheet, afterF9 };
+  },
+  // M20: a formula entered in Manual mode that closes a loop through a cell that was not entered.
+  M20: async (context, s) => {
+    s.getRange("A1").formulas = [["=B1+1"]]; // 1
+    await context.sync();
+    await setMode(context, Excel.CalculationMode.manual);
+    s.getRange("B1").formulas = [["=A1"]]; // the loop A1, B1
+    await context.sync();
+    const afterEntry = await read(context, s, "A1:B1"); // B1 1 (A1's stored value), 0, or an error at the entry?
+    context.application.calculate(Excel.CalculationType.recalculate);
+    await context.sync();
+    const afterF9 = await read(context, s, "A1:B1");
+    return { afterEntry, afterF9 };
+  },
   // V1 (Automatic): a volatile cell and an edit nothing reads.
   V1: async (context, s) => {
     s.getRange("F1").formulas = [["=RAND()"]];
@@ -362,4 +427,4 @@ async function run(id) {
     }
   });
 }
-// run("M1") ... run("M16"), run("V1"), run("PREC"), run("DEP"): one fresh workbook each.
+// run("M1") ... run("M20"), run("V1"), run("PREC"), run("DEP"): one fresh workbook each.
