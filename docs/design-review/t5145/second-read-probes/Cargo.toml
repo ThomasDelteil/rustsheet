@@ -1,0 +1,13 @@
+[package]
+name = "designs-12-13-probes"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+rustsheet_engine = { path = "/tmp/wt-design-probe/crates/rustsheet-engine" }
+
+[profile.release]
+debug = 0
+
+[profile.release.package.bitcode]
+debug-assertions = true
